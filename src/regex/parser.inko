@@ -29,16 +29,20 @@ fn meta_char?(char: String) -> Bool {
 class pub enum TreeNode {
   case Character(String) # any character including escaped characters
   case EscapedCharacter(String) # \*, \+, \?
-  case SingleTerm(TreeNode) # <factor>
-  case ConcatTerm(TreeNode, TreeNode) # <factor><term>
-  case TermExpression(TreeNode) # <term>
-  case UnionExpression(TreeNode, TreeNode) # <term> | <expr>
-  case AtomFactor(TreeNode) # <atom>
+
+  case GroupedAtom(TreeNode) # (<expr>)
+  case CharacterAtom(TreeNode) # <character>
+
+  case SingleFactor(TreeNode) # <atom>
   case ZeroOrMoreFactor(TreeNode) # <atom> *
   case ZeroOrOneFactor(TreeNode) # <atom> ?
   case OneOrMoreFactor(TreeNode) # <atom> +
-  case ExpressionAtom(TreeNode) # (<expr>)
-  case CharacterAtom(TreeNode) # <character>
+
+  case SingleTerm(TreeNode) # <factor>
+  case ConcatTerm(TreeNode, TreeNode) # <factor><term>
+
+  case SingleExpression(TreeNode) # <term>
+  case UnionExpression(TreeNode, TreeNode) # <term> | <expr>
 
 
   # Utility method to output an indent-separated htree of nodes
@@ -47,16 +51,22 @@ class pub enum TreeNode {
     match self {
       case Character(char) -> "{indent}Character {char}\n"
       case EscapedCharacter(char) -> "{indent} EscapedCharacter {char}\n"
-      case SingleTerm(term) -> "{indent}Term (Single Factor)\n{term.debug(next_indent)}"
-      case ConcatTerm(factor, term) -> "{indent}Term (Concat)\n{factor.debug(next_indent)}{term.debug(next_indent)}"
-      case TermExpression(term) -> "{indent}Expression (Term)\n{term.debug(next_indent)}"
-      case UnionExpression(term, expression) -> "{indent}Expression (Union)\n{term.debug(next_indent)}{expression.debug(next_indent)}"
-      case AtomFactor(atom) -> "{indent}Factor (Atom)\n{atom.debug(next_indent)}"
+
+
+      case GroupedAtom(expression) -> "{indent}Atom (Group)\n{expression.debug(next_indent)}"
+      case CharacterAtom(character) -> "{indent}Atom (Character)\n{character.debug(next_indent)}"
+
+
+      case SingleFactor(atom) -> "{indent}Factor (Atom)\n{atom.debug(next_indent)}"
       case ZeroOrMoreFactor(atom) -> "{indent}Factor (ZeroOrMore)\n{atom.debug(next_indent)}"
       case ZeroOrOneFactor(atom) -> "{indent}Factor (ZeroOrOne)\n{atom.debug(next_indent)}"
       case OneOrMoreFactor(atom) -> "{indent}Factor (OneOrMore)\n{atom.debug(next_indent)}"
-      case ExpressionAtom(expression) -> "{indent}Atom (Expression)\n{expression.debug(next_indent)}"
-      case CharacterAtom(character) -> "{indent}Atom (Character)\n{character.debug(next_indent)}"
+
+      case SingleTerm(term) -> "{indent}Term (Single Factor)\n{term.debug(next_indent)}"
+      case ConcatTerm(factor, term) -> "{indent}Term (Concat)\n{factor.debug(next_indent)}{term.debug(next_indent)}"
+
+      case SingleExpression(term) -> "{indent}Expression (Term)\n{term.debug(next_indent)}"
+      case UnionExpression(term, expression) -> "{indent}Expression (Union)\n{term.debug(next_indent)}{expression.debug(next_indent)}"
     }
   }
 }
@@ -73,16 +83,20 @@ impl Equal[TreeNode] for TreeNode {
     match (self, other) {
       case (Character(char), Character(other_char)) -> char == other_char
       case (EscapedCharacter(char), EscapedCharacter(other_char)) -> char == other_char
-      case (SingleTerm(node), SingleTerm(other_node)) -> node == other_node
-      case (ConcatTerm(node1, node2), ConcatTerm(other_node1, other_node2)) -> node1 == other_node1 and node2 == other_node2
-      case (TermExpression(node), TermExpression(other_node)) -> node == other_node
-      case (UnionExpression(node1, node2), UnionExpression(other_node1, other_node2)) -> node1 == other_node1 and node2 == other_node2
-      case(AtomFactor(node), AtomFactor(other_node)) -> node == other_node
+
+      case(GroupedAtom(node), GroupedAtom(other_node)) -> node == other_node
+      case (CharacterAtom(node), CharacterAtom(other_node)) -> node == other_node
+
       case(ZeroOrOneFactor(node), ZeroOrOneFactor(other_node)) -> node == other_node
       case(ZeroOrMoreFactor(node), ZeroOrMoreFactor(other_node)) -> node == other_node
       case(OneOrMoreFactor(node), OneOrMoreFactor(other_node)) -> node == other_node
-      case(ExpressionAtom(node), ExpressionAtom(other_node)) -> node == other_node
-      case (CharacterAtom(node), CharacterAtom(other_node)) -> node == other_node
+
+      case (SingleTerm(node), SingleTerm(other_node)) -> node == other_node
+      case (ConcatTerm(node1, node2), ConcatTerm(other_node1, other_node2)) -> node1 == other_node1 and node2 == other_node2
+
+      case (SingleExpression(node), SingleExpression(other_node)) -> node == other_node
+      case (UnionExpression(node1, node2), UnionExpression(other_node1, other_node2)) -> node1 == other_node1 and node2 == other_node2
+      case(SingleFactor(node), SingleFactor(other_node)) -> node == other_node
       case _ -> false # Warning: false negative instead of compile error if you forget to update the match statement
     }
   }
@@ -162,13 +176,13 @@ class pub Parser {
     let term = self.term
 
     match @pattern_iter.peek {
-      case None -> TreeNode.TermExpression(term)
+      case None -> TreeNode.SingleExpression(term)
       case Some(char) if char == '|' -> {
         @pattern_iter.next
         let expression = self.expression
         TreeNode.UnionExpression(term, expression)
       }
-      case Some(char) -> TreeNode.TermExpression(term)
+      case Some(char) -> TreeNode.SingleExpression(term)
     }
   }
 
@@ -195,7 +209,7 @@ class pub Parser {
   # <atom> | <atom><meta-char>
   fn mut factor() -> TreeNode {
     match @pattern_iter.peek {
-      case None -> TreeNode.AtomFactor(atom)
+      case None -> TreeNode.SingleFactor(atom)
       case Some(char) if meta_char?(char) -> {
           match @pattern_iter.next {
               case None -> panic("impossible")
@@ -205,7 +219,7 @@ class pub Parser {
               case Some(char) -> panic("impossible")
           }
       }
-      case Some(char) -> TreeNode.AtomFactor(atom)
+      case Some(char) -> TreeNode.SingleFactor(atom)
     }
   }
 
@@ -222,7 +236,7 @@ class pub Parser {
           case None -> panic("No closing )")
           case Some(')') -> {
             @pattern_iter.next
-            TreeNode.ExpressionAtom(expression)
+            TreeNode.GroupedAtom(expression)
           }
           case Some(char) -> panic("Expected ), got {char}")
         }

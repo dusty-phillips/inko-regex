@@ -4,9 +4,9 @@ import regex::parser::(TreeNode, Parser)
 
 fn pub tests(t: mut Tests) {
   t.test("Parse a single character") fn (t) {
-    let expected = TreeNode.TermExpression(
+    let expected = TreeNode.SingleExpression(
       TreeNode.SingleTerm(
-        TreeNode.AtomFactor(
+        TreeNode.SingleFactor(
           TreeNode.CharacterAtom(
             TreeNode.Character('a')
           )
@@ -20,15 +20,15 @@ fn pub tests(t: mut Tests) {
   }
 
   t.test("Parse two character concatenation") fn (t) {
-    let expected = TreeNode.TermExpression(
+    let expected = TreeNode.SingleExpression(
       TreeNode.ConcatTerm(
-        TreeNode.AtomFactor(
+        TreeNode.SingleFactor(
           TreeNode.CharacterAtom(
             TreeNode.Character('a')
           )
         ),
         TreeNode.SingleTerm(
-          TreeNode.AtomFactor(
+          TreeNode.SingleFactor(
             TreeNode.CharacterAtom(
               TreeNode.Character('b')
             )
@@ -38,6 +38,30 @@ fn pub tests(t: mut Tests) {
     )
 
     let parser = Parser.new('ab')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+  }
+
+  t.test("Parse a union of two characters") fn (t) {
+    let expected = TreeNode.UnionExpression(
+      TreeNode.SingleTerm(
+        TreeNode.SingleFactor(
+          TreeNode.CharacterAtom(
+            TreeNode.Character('a')
+          )
+        )
+      ),
+      TreeNode.SingleExpression(
+        TreeNode.SingleTerm(
+          TreeNode.SingleFactor(
+            TreeNode.CharacterAtom(
+              TreeNode.Character('b')
+            )
+          )
+        )
+      )
+    )
+    let parser = Parser.new('a|b')
     let tree = parser.parse()
     t.equal(tree, expected)
   }

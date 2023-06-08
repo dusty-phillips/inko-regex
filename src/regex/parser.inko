@@ -1,6 +1,7 @@
 import std::iter::(Iter)
 import std::fmt::(Format, Formatter)
 import std::cmp::(Equal)
+import std::stdio::STDOUT
 
 # Based on https://deniskyashif.com/2020/08/17/parsing-regex-with-recursive-descent/
 #
@@ -27,7 +28,7 @@ fn meta_char?(char: String) -> Bool {
 
 # Represents a node in a regex parse tree. Grammar is described above.
 class pub enum TreeNode {
-  case Character(String) # any character including escaped characters
+  case Character(String) # any character excluding escaped characters
   case EscapedCharacter(String) # \*, \+, \?
 
   case GroupedAtom(TreeNode) # (<expr>)
@@ -208,6 +209,7 @@ class pub Parser {
   #
   # <atom> | <atom><meta-char>
   fn mut factor() -> TreeNode {
+    let atom = self.atom
     match @pattern_iter.peek {
       case None -> TreeNode.SingleFactor(atom)
       case Some(char) if meta_char?(char) -> {

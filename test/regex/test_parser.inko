@@ -66,4 +66,94 @@ fn pub tests(t: mut Tests) {
     t.equal(tree, expected)
   }
 
+  t.test("Parse a single character zero or more") fn (t) {
+   let expected = TreeNode.SingleExpression(
+    TreeNode.SingleTerm(
+      TreeNode.ZeroOrMoreFactor(
+        TreeNode.CharacterAtom(
+          TreeNode.Character('a')
+        )
+      )
+    )
+   )
+
+    let parser = Parser.new('a*')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+  }
+
+
+  t.test("Parse a single character zero or one") fn (t) {
+   let expected = TreeNode.SingleExpression(
+    TreeNode.SingleTerm(
+      TreeNode.ZeroOrOneFactor(
+        TreeNode.CharacterAtom(
+          TreeNode.Character('a')
+        )
+      )
+    )
+   )
+
+    let parser = Parser.new('a?')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+  }
+
+
+  t.test("Parse a single character one or more") fn (t) {
+   let expected = TreeNode.SingleExpression(
+    TreeNode.SingleTerm(
+      TreeNode.OneOrMoreFactor(
+        TreeNode.CharacterAtom(
+          TreeNode.Character('a')
+        )
+      )
+    )
+   )
+
+    let parser = Parser.new('a+')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+  }
+
+  t.test("Parse a character grouping") fn (t) {
+    let expected = TreeNode.SingleExpression(
+      TreeNode.SingleTerm(
+        TreeNode.SingleFactor(
+          TreeNode.GroupedAtom(
+            TreeNode.SingleExpression(
+              TreeNode.SingleTerm(
+                TreeNode.SingleFactor(
+                  TreeNode.CharacterAtom(
+                    TreeNode.Character('a')
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+
+    let parser = Parser.new('(a)')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+  }
+
+
+  t.test("Parse an escaped character") fn (t) {
+    let expected = TreeNode.SingleExpression(
+      TreeNode.SingleTerm(
+        TreeNode.SingleFactor(
+          TreeNode.CharacterAtom(
+            TreeNode.EscapedCharacter('*')
+          )
+        )
+      )
+    )
+
+    let parser = Parser.new('\*')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+  }
 }

@@ -1,34 +1,11 @@
+import regex::parser::(Parser)
 import std::stdio::(STDOUT)
-
-# Based on https://deniskyashif.com/2020/08/17/parsing-regex-with-recursive-descent/
-#
-# Operations:
-# Concatenation (no symbol)
-# Union |
-# Zero-or-more *
-# One-or-more +
-# Zero-or-one ?
-# Grouping ()
-# Escaping \
-#
-# Grammar:
-# <expr> ::= <term> | <term>'|'<expr>
-# <term> ::= <factor> | <factor><term>
-# <factor> ::= <atom> | <atom><meta-char>
-# <atom> ::= <char> | '('<expr>')'
-# <char> ::= <any-char-except-meta-char> | '\'<any-char>
-# <meta-char> ::= '?' | '*' | '+'
-
-fn is_meta_char?(char: String) -> Bool {
-  return char == '*' or char == '+' or char == '?'
-}
-
-class enum TreeNode {
-  case Thing
-}
 
 class async Main {
   fn pub async main() {
-    STDOUT.new.print(is_meta_char?("+").to_string)
+    let parser = Parser.new("ab")
+    let tree = parser.parse()
+    STDOUT.new.print(tree.debug(""))
+    STDOUT.new.print("------------")
   }
 }

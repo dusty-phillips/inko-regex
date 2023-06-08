@@ -1,0 +1,259 @@
+import std::iter::(Iter)
+import std::fmt::(Format, Formatter)
+import std::cmp::(Equal)
+
+# Based on https://deniskyashif.com/2020/08/17/parsing-regex-with-recursive-descent/
+#
+# Operations:
+# Concatenation (no symbol)
+# Union |
+# Zero-or-more *
+# One-or-more +
+# Zero-or-one ?
+# Grouping ()
+# Escaping \
+#
+# Grammar:
+# <expr> ::= <term> | <term>'|'<expr>
+# <term> ::= <factor> | <factor><term>
+# <factor> ::= <atom> | <atom><meta-char>
+# <atom> ::= <char> | '('<expr>')'
+# <char> ::= <any-char-except-meta-char> | '\'<any-char>
+# <meta-char> ::= '?' | '*' | '+'
+
+fn meta_char?(char: String) -> Bool {
+  return char == '*' or char == '+' or char == '?'
+}
+
+# Represents a node in a regex parse tree. Grammar is described above.
+class pub enum TreeNode {
+  case Character(String) # any character including escaped characters
+  case EscapedCharacter(String) # \*, \+, \?
+  case SingleTerm(TreeNode) # <factor>
+  case ConcatTerm(TreeNode, TreeNode) # <factor><term>
+  case TermExpression(TreeNode) # <term>
+  case UnionExpression(TreeNode, TreeNode) # <term> | <expr>
+  case AtomFactor(TreeNode) # <atom>
+  case ZeroOrMoreFactor(TreeNode) # <atom> *
+  case ZeroOrOneFactor(TreeNode) # <atom> ?
+  case OneOrMoreFactor(TreeNode) # <atom> +
+  case ExpressionAtom(TreeNode) # (<expr>)
+  case CharacterAtom(TreeNode) # <character>
+
+
+  # Utility method to output an indent-separated htree of nodes
+  fn pub debug(indent: String) -> String {
+    let next_indent = indent + "  "
+    match self {
+      case Character(char) -> "{indent}Character {char}\n"
+      case EscapedCharacter(char) -> "{indent} EscapedCharacter {char}\n"
+      case SingleTerm(term) -> "{indent}Term (Single Factor)\n{term.debug(next_indent)}"
+      case ConcatTerm(factor, term) -> "{indent}Term (Concat)\n{factor.debug(next_indent)}{term.debug(next_indent)}"
+      case TermExpression(term) -> "{indent}Expression (Term)\n{term.debug(next_indent)}"
+      case UnionExpression(term, expression) -> "{indent}Expression (Union)\n{term.debug(next_indent)}{expression.debug(next_indent)}"
+      case AtomFactor(atom) -> "{indent}Factor (Atom)\n{atom.debug(next_indent)}"
+      case ZeroOrMoreFactor(atom) -> "{indent}Factor (ZeroOrMore)\n{atom.debug(next_indent)}"
+      case ZeroOrOneFactor(atom) -> "{indent}Factor (ZeroOrOne)\n{atom.debug(next_indent)}"
+      case OneOrMoreFactor(atom) -> "{indent}Factor (OneOrMore)\n{atom.debug(next_indent)}"
+      case ExpressionAtom(expression) -> "{indent}Atom (Expression)\n{expression.debug(next_indent)}"
+      case CharacterAtom(character) -> "{indent}Atom (Character)\n{character.debug(next_indent)}"
+    }
+  }
+}
+
+impl Format for TreeNode {
+  fn pub fmt(formatter: mut Formatter) {
+    formatter.write(self.debug(""))
+  }
+}
+
+impl Equal[TreeNode] for TreeNode {
+  # Compare a node as equal to other node recursively.
+  fn pub ==(other: ref TreeNode) -> Bool {
+    match (self, other) {
+      case (Character(char), Character(other_char)) -> char == other_char
+      case (EscapedCharacter(char), EscapedCharacter(other_char)) -> char == other_char
+      case (SingleTerm(node), SingleTerm(other_node)) -> node == other_node
+      case (ConcatTerm(node1, node2), ConcatTerm(other_node1, other_node2)) -> node1 == other_node1 and node2 == other_node2
+      case (TermExpression(node), TermExpression(other_node)) -> node == other_node
+      case (UnionExpression(node1, node2), UnionExpression(other_node1, other_node2)) -> node1 == other_node1 and node2 == other_node2
+      case(AtomFactor(node), AtomFactor(other_node)) -> node == other_node
+      case(ZeroOrOneFactor(node), ZeroOrOneFactor(other_node)) -> node == other_node
+      case(ZeroOrMoreFactor(node), ZeroOrMoreFactor(other_node)) -> node == other_node
+      case(OneOrMoreFactor(node), OneOrMoreFactor(other_node)) -> node == other_node
+      case(ExpressionAtom(node), ExpressionAtom(other_node)) -> node == other_node
+      case (CharacterAtom(node), CharacterAtom(other_node)) -> node == other_node
+      case _ -> false # Warning: false negative instead of compile error if you forget to update the match statement
+    }
+  }
+}
+
+# An iterator that buffers the initial value so you can "peek" at it without consuming it
+class PeekablePatternIter {
+  let @pattern_iter: Iter[String]
+  let @peek_buffer: Option[String]
+
+  # Construct a new PeekablePatternIter
+  fn static new(pattern: String) -> PeekablePatternIter {
+    PeekablePatternIter {
+      @pattern_iter = pattern.characters
+      @peek_buffer = Option.None
+    }
+  }
+
+  # Check the first value of the iterator without consuming it.
+  #
+  # If this returns None, the iterator is exhausted.
+  fn mut peek() -> ref Option[String] {
+    if @peek_buffer.some?.false? {
+      @peek_buffer = @pattern_iter.next
+    }
+    return @peek_buffer
+  }
+
+  # Return a string representation of the next item,
+  # unwrapping "None" to a string.
+  #
+  # Only useful when debugging the tree.
+  fn mut debug_peek() -> String {
+    if @peek_buffer.some?.false? {
+      @peek_buffer = @pattern_iter.next
+    }
+
+    if @peek_buffer.some?.false? {
+      return "None"
+    }
+    return @peek_buffer.as_ref.unwrap
+  }
+}
+
+impl Iter[String] for PeekablePatternIter {
+  # next will clear and return the peek buffer if it exists
+  # otherwise consumes the next item on the iterator.
+  fn pub mut next -> Option[String] {
+    let peek_buffer = @peek_buffer := Option.None
+    if peek_buffer.some? { return peek_buffer }
+    return @pattern_iter.next
+  }
+}
+
+# Regular Expression Parser that accepts a pattern string
+# and uses a linear-time recursive descent algorithm to
+# convert it into a tree of TreeNode objects.
+class pub Parser {
+  let @pattern_iter: PeekablePatternIter
+
+  # Construct a new parser around the given pattern.
+  fn pub static new(pattern: String) -> Parser {
+    Parser {
+      @pattern_iter = PeekablePatternIter.new(pattern)
+    }
+  }
+
+  # Convert the pattern to a parsed tree
+  fn pub mut parse() -> TreeNode {
+    self.expression()
+  }
+
+  # Eat an expression off the parser and return it.
+  #
+  # <term> | <term>'|'<expr>
+  fn mut expression() -> TreeNode {
+    let term = self.term
+
+    match @pattern_iter.peek {
+      case None -> TreeNode.TermExpression(term)
+      case Some(char) if char == '|' -> {
+        @pattern_iter.next
+        let expression = self.expression
+        TreeNode.UnionExpression(term, expression)
+      }
+      case Some(char) -> TreeNode.TermExpression(term)
+    }
+  }
+
+  # Eat a term off the parser
+  #
+  # <factor> | <factor><term>
+  fn mut term() -> TreeNode {
+    let factor = self.factor
+
+    match @pattern_iter.peek {
+      case None -> TreeNode.SingleTerm(factor)
+      case Some(char) if char == ")" or char == "|" -> {
+        TreeNode.SingleTerm(factor)
+      }
+      case Some(char) -> {
+        let term = self.term
+        TreeNode.ConcatTerm(factor, term)
+      }
+    }
+  }
+
+  # Eat a factor off the parser
+  #
+  # <atom> | <atom><meta-char>
+  fn mut factor() -> TreeNode {
+    match @pattern_iter.peek {
+      case None -> TreeNode.AtomFactor(atom)
+      case Some(char) if meta_char?(char) -> {
+          match @pattern_iter.next {
+              case None -> panic("impossible")
+              case Some('*') -> TreeNode.ZeroOrMoreFactor(atom)
+              case Some('?') -> TreeNode.ZeroOrOneFactor(atom)
+              case Some('+') -> TreeNode.OneOrMoreFactor(atom)
+              case Some(char) -> panic("impossible")
+          }
+      }
+      case Some(char) -> TreeNode.AtomFactor(atom)
+    }
+  }
+
+  # Eat an atom off the parser
+  #
+  # <char> | '('<expr>')'
+  fn mut atom() -> TreeNode {
+    match @pattern_iter.peek {
+      case None -> panic("unexpected end of input")
+      case Some(char) if char == '(' -> {
+        @pattern_iter.next
+        let expression = self.expression
+        match @pattern_iter.peek {
+          case None -> panic("No closing )")
+          case Some(')') -> {
+            @pattern_iter.next
+            TreeNode.ExpressionAtom(expression)
+          }
+          case Some(char) -> panic("Expected ), got {char}")
+        }
+      }
+      case Some(char) -> {
+        let character = self.character
+        TreeNode.CharacterAtom(character)
+      }
+    }
+  }
+
+  # Eat a (possibly escaped) character off the parser
+  #
+  # <any-char-except-meta-char> | '\'<any-char>
+  fn mut character() -> TreeNode {
+    match @pattern_iter.peek {
+      case None -> panic("unexpected end of input")
+      case Some(char) if meta_char?(char) -> panic("Unexpected meta char {char}")
+      case Some(char) if char == "\\" -> {
+        @pattern_iter.next
+        match @pattern_iter.next {
+          case None -> panic("Unexpected end of string after escape")
+          case Some(char) -> TreeNode.EscapedCharacter(char)
+        }
+      }
+      case Some(char) -> {
+        @pattern_iter.next
+        TreeNode.Character(char)
+      }
+    }
+  }
+}
+
+

@@ -1,0 +1,45 @@
+
+import std::test::Tests
+import regex::parser::(TreeNode, Parser)
+
+fn pub tests(t: mut Tests) {
+  t.test("Parse a single character") fn (t) {
+    let expected = TreeNode.TermExpression(
+      TreeNode.SingleTerm(
+        TreeNode.AtomFactor(
+          TreeNode.CharacterAtom(
+            TreeNode.Character('a')
+          )
+        )
+      )
+    )
+
+    let parser = Parser.new('a')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+  }
+
+  t.test("Parse two character concatenation") fn (t) {
+    let expected = TreeNode.TermExpression(
+      TreeNode.ConcatTerm(
+        TreeNode.AtomFactor(
+          TreeNode.CharacterAtom(
+            TreeNode.Character('a')
+          )
+        ),
+        TreeNode.SingleTerm(
+          TreeNode.AtomFactor(
+            TreeNode.CharacterAtom(
+              TreeNode.Character('b')
+            )
+          )
+        )
+      )
+    )
+
+    let parser = Parser.new('ab')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+  }
+
+}

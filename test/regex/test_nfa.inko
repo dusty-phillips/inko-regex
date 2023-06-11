@@ -14,7 +14,20 @@ fn pub tests(t: mut Tests) {
 ()-ε->
 ()-ε->
 (End)
-}"
-)
+}") }
+
+  t.test("Concat two symbol NFAs") fn (t) {
+    let nfa = Nfa.symbol("a")
+    nfa.concat(Nfa.symbol("b"))
+    t.equal(fmt(nfa), "Nfa \{
+()-a->
+()-ε->
+()-b->
+(End)
+}") }
+
+  t.test("Union two empty NFAs") fn (t) {
+    let nfa = Nfa.empty
+    nfa.union(Nfa.empty)
   }
 }

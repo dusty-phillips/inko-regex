@@ -46,6 +46,13 @@ impl Format for StateType {
 class pub State {
   let @state_type: StateType
 
+
+  fn static new(state_type: StateType) -> State {
+    State {
+      @state_type = state_type
+    }
+  }
+
   fn pub static end() -> State {
     State {
       @state_type = StateType.End
@@ -58,12 +65,8 @@ class pub State {
     }
   }
 
-  fn pub mut replace(new_state: State) {
-    match new_state {
-      case {@state_type = state_type} -> {
-        @state_type = state_type
-      }
-    }
+  fn mut replace(new_state: StateType) -> StateType {
+        @state_type := new_state
   }
 }
 
@@ -146,8 +149,22 @@ class pub Nfa {
     match other {
       case {@end=other_end, @start=other_start} -> {
         let transition = Transition.Empty(other_start)
-        @end.replace(State.transitions([transition]))
+        @end.replace(StateType.Transitions([transition]))
         @end = other_end
+      }
+    }
+  }
+
+  fn pub mut union(other: Nfa) {
+    match other {
+      case {@end=other_end, @start=other_start} -> {
+        let old_start = State.new(@start.replace(StateType.End))
+        let new_end = State.new(@start.replace(StateType.Transitions([Transition.Empty(old_start), Transition.Empty(other_start)])))
+        let new_end_ref = mut new_end
+        @end.replace(StateType.Transitions([Transition.Reference(new_end_ref)]))
+        other_end.replace(StateType.Transitions([Transition.Empty(new_end)]))
+        @end = new_end_ref
+
       }
     }
   }

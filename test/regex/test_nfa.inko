@@ -1,0 +1,20 @@
+import std::stdio::(STDOUT)
+import std::test::Tests
+import std::fmt::(fmt)
+import regex::nfa::(Nfa, State, Transition)
+
+fn pub tests(t: mut Tests) {
+  t.test("Concat two empty NFAs") fn (t) {
+    let nfa = Nfa.empty
+    nfa.concat(Nfa.empty)
+
+
+    t.equal(fmt(nfa), "Nfa \{
+()-ε->
+()-ε->
+()-ε->
+(End)
+}"
+)
+  }
+}

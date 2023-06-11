@@ -1,0 +1,172 @@
+import std::fmt::(Format, Formatter)
+import std::cmp::(Equal)
+
+# Based on https://deniskyashif.com/2019/02/17/implementing-a-regular-expression-engine/
+
+class enum StateType {
+  case End
+  case Transitions(Array[Transition])
+}
+
+impl Equal[StateType] for StateType {
+  fn pub ==(other: ref StateType) -> Bool {
+    match (self, other) {
+      case (End, End) -> true,
+      case (Transitions(transitions), Transitions(other_transitions)) -> transitions == other_transitions
+      case (_, _) -> false
+    }
+  }
+}
+
+impl Format for StateType {
+  fn pub fmt(formatter: mut Formatter) {
+    match self {
+      case End -> formatter.write("(End)")
+      case Transitions(transitions) if transitions.length == 0 -> {
+        panic("Cannot have empty transitions")
+      }
+      case Transitions(transitions) if transitions.length == 1 -> {
+        formatter.write('()')
+        transitions.get(0).fmt(formatter)
+      }
+      case Transitions(transitions) -> {
+        formatter.write('()')
+        transitions.get(0).fmt(formatter)
+        let iter = transitions.iter
+        iter.next
+        iter.each() fn (transition) {
+          formatter.write('  ')
+          transition.fmt(formatter)
+        }
+      }
+    }
+  }
+}
+
+class pub State {
+  let @state_type: StateType
+
+  fn pub static end() -> State {
+    State {
+      @state_type = StateType.End
+    }
+  }
+
+  fn pub static transitions(transitions: Array[Transition]) -> State {
+    State {
+      @state_type = StateType.Transitions(transitions)
+    }
+  }
+
+  fn pub mut replace(new_state: State) {
+    match new_state {
+      case {@state_type = state_type} -> {
+        @state_type = state_type
+      }
+    }
+  }
+}
+
+impl Equal[State] for State {
+  fn pub ==(other: ref State) -> Bool {
+    match (self, other) {
+      case ({@state_type=state}, {@state_type=other_state}) -> state == other_state
+    }
+  }
+}
+
+impl Format for State {
+  fn pub fmt(formatter: mut Formatter) {
+    @state_type.fmt(formatter)
+  }
+}
+
+class pub enum Transition {
+  case Symbol(String, State)
+  case Empty(State)
+  case Reference(ref State)
+}
+
+impl Equal[Transition] for Transition {
+  fn pub ==(other: ref Transition) -> Bool {
+    match (self, other) {
+      case (Symbol(char, state), Symbol(other_char, other_state)) -> char == other_char and state == other_state
+      case (Empty(state), Empty(other_state)) -> state == other_state
+      case (Reference(state), Reference(other_state)) -> state == other_state
+      case (_, _) -> false
+    }
+  }
+}
+
+impl Format for Transition {
+  fn pub fmt(formatter: mut Formatter) {
+    match self {
+      case Symbol(string, state) -> {
+        formatter.write("-{string}->\n")
+        state.fmt(formatter)
+      }
+      case Empty(state) -> {
+        formatter.write("-ε->\n")
+        state.fmt(formatter)
+      }
+      case Reference(state) -> {
+        formatter.write("--->(REF)\n")
+      }
+    }
+  }
+}
+
+class pub Nfa {
+  let @end: mut State
+  let @start: State
+
+  fn pub static empty() -> Nfa {
+    let end = State.end
+    let end_ref = mut end
+    let start = State.transitions([Transition.Empty(end)])
+
+    Nfa {
+      @end = end_ref
+      @start = start
+    }
+  }
+
+  fn pub static symbol(char: String) -> Nfa {
+    let end = State.end
+    let end_ref = mut end
+    let start = State.transitions([Transition.Symbol(char, end)])
+
+    Nfa {
+      @end = end_ref
+      @start = start
+    }
+  }
+
+  fn pub mut concat(other: Nfa) {
+    match other {
+      case {@end=other_end, @start=other_start} -> {
+        let transition = Transition.Empty(other_start)
+        @end.replace(State.transitions([transition]))
+        @end = other_end
+      }
+    }
+  }
+}
+
+impl Equal[Nfa] for Nfa {
+  fn pub ==(other: ref Nfa) -> Bool {
+    match (self, other) {
+      case ({@end=end, @start=start}, {@end=other_end, @start=other_start}) -> {
+        end == other_end and start == other_start
+      }
+    }
+  }
+}
+
+impl Format for Nfa {
+  fn pub fmt(formatter: mut Formatter) {
+    formatter.write("Nfa \{\n")
+    self.start.fmt(formatter)
+    formatter.write("\n}")
+  }
+}

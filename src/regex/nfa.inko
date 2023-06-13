@@ -4,99 +4,58 @@ import std::stdio::(STDOUT)
 
 # Based on https://deniskyashif.com/2019/02/17/implementing-a-regular-expression-engine/
 
-class enum StateType {
-  case End
-  case Transitions(Array[Transition])
-}
-
-impl Equal[StateType] for StateType {
-  fn pub ==(other: ref StateType) -> Bool {
-    match (self, other) {
-      case (End, End) -> true,
-      case (Transitions(transitions), Transitions(other_transitions)) -> transitions == other_transitions
-      case (_, _) -> false
-    }
-  }
-}
-
-impl Format for StateType {
-  fn pub fmt(formatter: mut Formatter) {
-    match self {
-      case End -> formatter.write("(End)")
-      case Transitions(transitions) if transitions.length == 0 -> {
-        panic("Cannot have empty transitions")
-      }
-      case Transitions(transitions) if transitions.length == 1 -> {
-        formatter.write('()')
-        transitions.get(0).fmt(formatter)
-      }
-      case Transitions(transitions) -> {
-        formatter.write('()')
-        transitions.get(0).fmt(formatter)
-        let iter = transitions.iter
-        iter.next
-        iter.each() fn (transition) {
-          formatter.write('  ')
-          transition.fmt(formatter)
-        }
-      }
-    }
-  }
-}
-
 class pub State {
-  let @state_type: StateType
+  let @transition: Transition
 
 
-  fn static new(state_type: StateType) -> State {
+  fn static new(transition: Transition) -> State {
     State {
-      @state_type = state_type
+      @transition = transition
     }
   }
 
   fn pub static end() -> State {
     State {
-      @state_type = StateType.End
+      @transition = Transition.End
     }
   }
 
-  fn pub static transitions(transitions: Array[Transition]) -> State {
-    State {
-      @state_type = StateType.Transitions(transitions)
-    }
-  }
-
-  fn mut replace(new_state: StateType) -> StateType {
-    @state_type := new_state
+  fn mut replace(new_transition: Transition) -> Transition {
+    @transition := new_transition
   }
 }
 
 impl Equal[State] for State {
   fn pub ==(other: ref State) -> Bool {
     match (self, other) {
-      case ({@state_type=state}, {@state_type=other_state}) -> state == other_state
+      case ({@transition=transition}, {@transition=other_transition}) -> transition == other_transition
     }
   }
 }
 
 impl Format for State {
   fn pub fmt(formatter: mut Formatter) {
-    @state_type.fmt(formatter)
+    formatter.write("()")
+    @transition.fmt(formatter)
   }
 }
 
 class pub enum Transition {
+  case End
   case Symbol(String, State)
   case Empty(State)
   case Reference(ref State)
+  case Split(Transition, Transition)
 }
 
 impl Equal[Transition] for Transition {
   fn pub ==(other: ref Transition) -> Bool {
     match (self, other) {
+      case (End, End) -> true
       case (Symbol(char, state), Symbol(other_char, other_state)) -> char == other_char and state == other_state
       case (Empty(state), Empty(other_state)) -> state == other_state
       case (Reference(state), Reference(other_state)) -> state == other_state
+      case(Split(t1, t2), Split(other_t1, other_t2)) -> t1 == other_t1 and t2 == other_t2
       case (_, _) -> false
     }
   }
@@ -105,6 +64,9 @@ impl Equal[Transition] for Transition {
 impl Format for Transition {
   fn pub fmt(formatter: mut Formatter) {
     match self {
+      case End -> {
+        formatter.write("--->(End)")
+      }
       case Symbol(string, state) -> {
         formatter.write("-{string}->\n")
         state.fmt(formatter)
@@ -116,6 +78,11 @@ impl Format for Transition {
       case Reference(state) -> {
         formatter.write("--->(REF)\n")
       }
+      case Split(t1, t2) -> {
+        t1.fmt(formatter)
+        formatter.write("\n  ")
+        t2.fmt(formatter)
+      }
     }
   }
 }
@@ -124,10 +91,17 @@ class pub Nfa {
   let @end: mut State
   let @start: State
 
+  fn static new(start: State, end: mut State) -> Nfa {
+    Nfa {
+      @start=start
+      @end=end
+    }
+  }
+
   fn pub static empty() -> Nfa {
     let end = State.end
     let end_ref = mut end
-    let start = State.transitions([Transition.Empty(end)])
+    let start = State.new(Transition.Empty(end))
 
     Nfa {
       @end = end_ref
@@ -138,7 +112,7 @@ class pub Nfa {
   fn pub static symbol(char: String) -> Nfa {
     let end = State.end
     let end_ref = mut end
-    let start = State.transitions([Transition.Symbol(char, end)])
+    let start = State.new(Transition.Symbol(char, end))
 
     Nfa {
       @end = end_ref
@@ -149,8 +123,7 @@ class pub Nfa {
   fn pub mut concat(other: Nfa) {
     match other {
       case {@end=other_end, @start=other_start} -> {
-        let transition = Transition.Empty(other_start)
-        @end.replace(StateType.Transitions([transition]))
+        @end.replace(Transition.Empty(other_start))
         @end = other_end
       }
     }
@@ -160,13 +133,11 @@ class pub Nfa {
     match other {
       case {@end=other_end, @start=other_start} -> {
         # Temporarily place new_end in start
-        let old_start = State.new(@start.replace(StateType.End))
-        let new_end = State.new(@start.replace(StateType.Transitions([Transition.Empty(old_start), Transition.Empty(other_start)])))
+        let old_start = State.new(@start.replace(Transition.End))
+        let new_end = State.new(@start.replace(Transition.Split(Transition.Empty(old_start), Transition.Empty(other_start))))
         let new_end_ref = mut new_end
-        @end.replace(StateType.Transitions([Transition.Reference(new_end_ref)]))
-        # owned value goes on `other` because the transition array above
-        # # gets dropped from beginning to end
-        other_end.replace(StateType.Transitions([Transition.Empty(new_end)]))
+        @end.replace(Transition.Reference(new_end_ref))
+        other_end.replace(Transition.Empty(new_end))
         @end = new_end_ref
 
       }
@@ -174,11 +145,11 @@ class pub Nfa {
   }
 
   fn pub mut zero_or_more() {
-    let old_start = State.new(@start.replace(StateType.End))
+    let old_start = State.new(@start.replace(Transition.End))
     let new_end = State.end
     let old_start_ref = ref old_start
-    @start.replace(StateType.Transitions([Transition.Reference(ref new_end), Transition.Empty(old_start)]))
-    @end.replace(StateType.Transitions([Transition.Reference(old_start_ref), Transition.Empty(new_end)]))
+    @start.replace(Transition.Split(Transition.Reference(ref new_end), Transition.Empty(old_start)))
+    @end.replace(Transition.Split(Transition.Reference(old_start_ref), Transition.Empty(new_end)))
   }
 }
 

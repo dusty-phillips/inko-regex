@@ -30,4 +30,21 @@ fn pub tests(t: mut Tests) {
     let nfa = Nfa.empty
     nfa.union(Nfa.empty)
   }
+
+  t.test("Union two symbol NFAs") fn (t) {
+    let nfa = Nfa.symbol("a")
+    nfa.union(Nfa.symbol("b"))
+  }
+
+  t.test("zero or more on empty NFA") fn (t) {
+    let nfa = Nfa.empty
+    nfa.zero_or_more
+    STDOUT.new.print("ddd")
+  }
+
+
+  t.test("zero or more on symbol NFA") fn (t) {
+    let nfa = Nfa.symbol("a")
+    nfa.zero_or_more
+  }
 }

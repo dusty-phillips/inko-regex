@@ -1,5 +1,6 @@
-import std::fmt::(Format, Formatter)
+import std::fmt::(Format, Formatter, fmt)
 import std::cmp::(Equal)
+import std::stdio::(STDOUT)
 
 # Based on https://deniskyashif.com/2019/02/17/implementing-a-regular-expression-engine/
 
@@ -66,7 +67,7 @@ class pub State {
   }
 
   fn mut replace(new_state: StateType) -> StateType {
-        @state_type := new_state
+    @state_type := new_state
   }
 }
 
@@ -158,15 +159,26 @@ class pub Nfa {
   fn pub mut union(other: Nfa) {
     match other {
       case {@end=other_end, @start=other_start} -> {
+        # Temporarily place new_end in start
         let old_start = State.new(@start.replace(StateType.End))
         let new_end = State.new(@start.replace(StateType.Transitions([Transition.Empty(old_start), Transition.Empty(other_start)])))
         let new_end_ref = mut new_end
         @end.replace(StateType.Transitions([Transition.Reference(new_end_ref)]))
+        # owned value goes on `other` because the transition array above
+        # # gets dropped from beginning to end
         other_end.replace(StateType.Transitions([Transition.Empty(new_end)]))
         @end = new_end_ref
 
       }
     }
+  }
+
+  fn pub mut zero_or_more() {
+    let old_start = State.new(@start.replace(StateType.End))
+    let new_end = State.end
+    let old_start_ref = ref old_start
+    @start.replace(StateType.Transitions([Transition.Reference(ref new_end), Transition.Empty(old_start)]))
+    @end.replace(StateType.Transitions([Transition.Reference(old_start_ref), Transition.Empty(new_end)]))
   }
 }
 

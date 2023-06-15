@@ -17,6 +17,8 @@ fn pub tests(t: mut Tests) {
     let parser = Parser.new('a')
     let tree = parser.parse()
     t.equal(tree, expected)
+
+    let nfa = tree.to_nfa
   }
 
   t.test("Parse two character concatenation") fn (t) {
@@ -40,6 +42,9 @@ fn pub tests(t: mut Tests) {
     let parser = Parser.new('ab')
     let tree = parser.parse()
     t.equal(tree, expected)
+
+
+    let nfa = tree.to_nfa
   }
 
   t.test("Parse a union of two characters") fn (t) {
@@ -64,6 +69,9 @@ fn pub tests(t: mut Tests) {
     let parser = Parser.new('a|b')
     let tree = parser.parse()
     t.equal(tree, expected)
+
+
+    let nfa = tree.to_nfa
   }
 
   t.test("Parse a single character zero or more") fn (t) {
@@ -80,6 +88,9 @@ fn pub tests(t: mut Tests) {
     let parser = Parser.new('a*')
     let tree = parser.parse()
     t.equal(tree, expected)
+
+
+    let nfa = tree.to_nfa
   }
 
 
@@ -97,6 +108,8 @@ fn pub tests(t: mut Tests) {
     let parser = Parser.new('a?')
     let tree = parser.parse()
     t.equal(tree, expected)
+
+    let nfa = tree.to_nfa
   }
 
 
@@ -114,6 +127,8 @@ fn pub tests(t: mut Tests) {
     let parser = Parser.new('a+')
     let tree = parser.parse()
     t.equal(tree, expected)
+
+    let nfa = tree.to_nfa
   }
 
   t.test("Parse a character grouping") fn (t) {
@@ -138,6 +153,8 @@ fn pub tests(t: mut Tests) {
     let parser = Parser.new('(a)')
     let tree = parser.parse()
     t.equal(tree, expected)
+
+    let nfa = tree.to_nfa
   }
 
 
@@ -155,5 +172,7 @@ fn pub tests(t: mut Tests) {
     let parser = Parser.new('\*')
     let tree = parser.parse()
     t.equal(tree, expected)
+
+    let nfa = tree.to_nfa
   }
 }

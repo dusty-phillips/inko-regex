@@ -2,6 +2,7 @@ import std::iter::(Iter)
 import std::fmt::(Format, Formatter)
 import std::cmp::(Equal)
 import std::stdio::STDOUT
+import regex::nfa::(Nfa)
 
 # Based on https://deniskyashif.com/2020/08/17/parsing-regex-with-recursive-descent/
 #
@@ -68,6 +69,48 @@ class pub enum TreeNode {
 
       case SingleExpression(term) -> "{indent}Expression (Term)\n{term.debug(next_indent)}"
       case UnionExpression(term, expression) -> "{indent}Expression (Union)\n{term.debug(next_indent)}{expression.debug(next_indent)}"
+    }
+  }
+
+  fn pub to_nfa() -> Nfa {
+    match self {
+      case Character(character) -> Nfa.symbol(character)
+      case EscapedCharacter(character) -> Nfa.symbol(character)
+
+      case GroupedAtom(expression) -> expression.to_nfa
+      case CharacterAtom(atom) -> atom.to_nfa
+
+      case SingleFactor(factor) -> factor.to_nfa
+      case ZeroOrMoreFactor(factor) -> {
+        let nfa = factor.to_nfa
+        nfa.zero_or_more
+        nfa
+      }
+      case ZeroOrOneFactor(factor) -> {
+        let nfa = factor.to_nfa
+        nfa.zero_or_one
+        nfa
+      }
+      case OneOrMoreFactor(factor) -> {
+        let nfa = factor.to_nfa
+        nfa.one_or_more
+        nfa
+      }
+
+      case SingleTerm(term) -> term.to_nfa
+      case ConcatTerm(factor, term) -> {
+        let nfa = factor.to_nfa
+        let other_nfa = term.to_nfa
+        nfa.concat(other_nfa)
+        nfa
+      }
+      case SingleExpression(term) -> term.to_nfa
+      case UnionExpression(term, expression) -> {
+        let nfa = term.to_nfa
+        let other_nfa = expression.to_nfa
+        nfa.union(other_nfa)
+        nfa
+      }
     }
   }
 }

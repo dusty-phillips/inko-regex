@@ -151,6 +151,18 @@ class pub Nfa {
     @start.replace(Transition.Split(Transition.Reference(ref new_end), Transition.Empty(old_start)))
     @end.replace(Transition.Split(Transition.Reference(old_start_ref), Transition.Empty(new_end)))
   }
+
+  fn pub mut one_or_more() {
+    let old_start = State.new(@start.replace(Transition.End))
+    let old_start_ref = mut old_start
+    let new_end = State.new(@start.replace(Transition.Empty(old_start)))
+    @end.replace(Transition.Split(Transition.Reference(old_start_ref), Transition.Empty(new_end)))
+  }
+
+  fn pub mut zero_or_one() {
+    let old_start = State.new(@start.replace(Transition.End))
+    @start.replace(Transition.Split(Transition.Reference(@end), Transition.Empty(old_start)))
+  }
 }
 
 impl Equal[Nfa] for Nfa {

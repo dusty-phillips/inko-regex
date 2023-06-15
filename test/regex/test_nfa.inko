@@ -47,4 +47,15 @@ fn pub tests(t: mut Tests) {
     let nfa = Nfa.symbol("a")
     nfa.zero_or_more
   }
+
+  t.test("one or more on empty NFA") fn (t) {
+    let nfa = Nfa.empty
+    nfa.one_or_more
+  }
+
+
+  t.test("one or more on symbol NFA") fn (t) {
+    let nfa = Nfa.symbol("a")
+    nfa.one_or_more
+  }
 }

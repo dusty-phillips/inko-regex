@@ -154,7 +154,7 @@ class PeekablePatternIter {
   # Construct a new PeekablePatternIter
   fn static new(pattern: String) -> PeekablePatternIter {
     PeekablePatternIter {
-      @pattern_iter = pattern.characters
+      @pattern_iter = pattern.characters,
       @peek_buffer = Option.None
     }
   }

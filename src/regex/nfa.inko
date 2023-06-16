@@ -6,22 +6,82 @@ import std::stdio::(STDOUT)
 
 class pub State {
   let @transition: Transition
+  let @mark_for_cycle_detection: Bool
 
 
   fn static new(transition: Transition) -> State {
     State {
-      @transition = transition
+      @transition = transition,
+      @mark_for_cycle_detection = false
     }
   }
 
   fn pub static end() -> State {
     State {
-      @transition = Transition.End
+      @transition = Transition.End,
+      @mark_for_cycle_detection = false
+    }
+  }
+
+  fn pub end?() -> Bool {
+    match @transition {
+      case End -> true
+      case _ -> false
     }
   }
 
   fn mut replace(new_transition: Transition) -> Transition {
     @transition := new_transition
+  }
+
+  fn mut clear_cycle_detection_marks() {
+    if (@mark_for_cycle_detection) {
+      @mark_for_cycle_detection = false
+      match @transition {
+        case End -> nil
+        case Reference(_) -> nil
+        case Symbol(string, state) -> state.clear_cycle_detection_marks
+        case Empty(state) -> state.clear_cycle_detection_marks
+        case Split(Empty(state1), Empty(state2)) -> {
+          state1.clear_cycle_detection_marks
+          state2.clear_cycle_detection_marks
+        }
+        case Split(Reference(_), Empty(state)) -> state.clear_cycle_detection_marks
+        case Split(_, _) -> panic("Unexpected split encountered during clear_cycle_detection_marks")
+      }
+    }
+  }
+
+  # After calling this, next_states_collector will contain refs to all States that are accessible
+  # from this state via either:
+  # * A symbol transition with the given symbol
+  # * A End state
+  # by skipping over any empty, reference, or split transitions in the middle
+  #
+  # A side effect of this function is that it marks states for cycle detection.
+  # You must call clear_cycle_detection_marks before calling it again with a new symbol.
+  fn mut skip_to_symbol_transitions(char: String, next_states_collector: mut Array[ref State]) {
+    if (@mark_for_cycle_detection) {
+      return
+    }
+    @mark_for_cycle_detection = true
+
+    match @transition {
+      case End -> next_states_collector.push(self)
+      case Symbol(character_to_match, state) if character_to_match == char -> next_states_collector.push(state)
+      case Symbol(_, _) -> nil
+      case Reference(state) -> state.skip_to_symbol_transitions(char, next_states_collector)
+      case Empty(state) -> state.skip_to_symbol_transitions(char, next_states_collector)
+      case Split(Empty(state1), Empty(state2)) -> {
+        state1.skip_to_symbol_transitions(char, next_states_collector)
+        state2.skip_to_symbol_transitions(char, next_states_collector)
+      }
+      case Split(Reference(state1), Empty(state2)) -> {
+        state1.skip_to_symbol_transitions(char, next_states_collector)
+        state2.skip_to_symbol_transitions(char, next_states_collector)
+      }
+      case Split(_, _) -> panic("Unexpected split encountered during skip_to_symbol_transitions")
+    }
   }
 }
 
@@ -44,7 +104,7 @@ class pub enum Transition {
   case End
   case Symbol(String, State)
   case Empty(State)
-  case Reference(ref State)
+  case Reference(mut State)
   case Split(Transition, Transition)
 }
 
@@ -93,7 +153,7 @@ class pub Nfa {
 
   fn static new(start: State, end: mut State) -> Nfa {
     Nfa {
-      @start=start
+      @start=start,
       @end=end
     }
   }
@@ -104,7 +164,7 @@ class pub Nfa {
     let start = State.new(Transition.Empty(end))
 
     Nfa {
-      @end = end_ref
+      @end = end_ref,
       @start = start
     }
   }
@@ -115,7 +175,7 @@ class pub Nfa {
     let start = State.new(Transition.Symbol(char, end))
 
     Nfa {
-      @end = end_ref
+      @end = end_ref,
       @start = start
     }
   }
@@ -147,8 +207,8 @@ class pub Nfa {
   fn pub mut zero_or_more() {
     let old_start = State.new(@start.replace(Transition.End))
     let new_end = State.end
-    let old_start_ref = ref old_start
-    @start.replace(Transition.Split(Transition.Reference(ref new_end), Transition.Empty(old_start)))
+    let old_start_ref = mut old_start
+    @start.replace(Transition.Split(Transition.Reference(mut new_end), Transition.Empty(old_start)))
     @end.replace(Transition.Split(Transition.Reference(old_start_ref), Transition.Empty(new_end)))
   }
 
@@ -162,6 +222,26 @@ class pub Nfa {
   fn pub mut zero_or_one() {
     let old_start = State.new(@start.replace(Transition.End))
     @start.replace(Transition.Split(Transition.Reference(@end), Transition.Empty(old_start)))
+  }
+
+  fn pub mut match(word: String) -> Bool {
+    let mut current_states = [mut @start]
+    let characters = word.characters
+    let mut character_option = characters.next
+    while (character_option).some? {
+      let character = character_option.unwrap
+      let mut next_states: Array[mut State] = []
+      current_states.iter_mut.each fn (state) {
+        state.skip_to_symbol_transitions(character, next_states)
+        state.clear_cycle_detection_marks
+      }
+      current_states = next_states
+      character_option = characters.next
+    }
+
+    let match_found = current_states.iter.find fn (state) {state.end?}
+    STDOUT.new.print("RETURNING NOW")
+    match_found.some?
   }
 }
 

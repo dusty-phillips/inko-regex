@@ -19,6 +19,9 @@ fn pub tests(t: mut Tests) {
     t.equal(tree, expected)
 
     let nfa = tree.to_nfa
+
+    t.equal(nfa.match('a'), true)
+    t.equal(nfa.match('b'), false)
   }
 
   t.test("Parse two character concatenation") fn (t) {
@@ -43,8 +46,12 @@ fn pub tests(t: mut Tests) {
     let tree = parser.parse()
     t.equal(tree, expected)
 
-
     let nfa = tree.to_nfa
+
+    t.equal(nfa.match('ab'), true)
+    t.equal(nfa.match('zz'), false)
+
+
   }
 
   t.test("Parse a union of two characters") fn (t) {
@@ -70,8 +77,10 @@ fn pub tests(t: mut Tests) {
     let tree = parser.parse()
     t.equal(tree, expected)
 
-
     let nfa = tree.to_nfa
+    t.equal(nfa.match('a'), true)
+    # t.equal(nfa.match('b'), true)
+    # t.equal(nfa.match('c'), false)
   }
 
   t.test("Parse a single character zero or more") fn (t) {

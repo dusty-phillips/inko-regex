@@ -240,7 +240,6 @@ class pub Nfa {
     }
 
     let match_found = current_states.iter.find fn (state) {state.end?}
-    STDOUT.new.print("RETURNING NOW")
     match_found.some?
   }
 }

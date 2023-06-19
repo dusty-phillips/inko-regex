@@ -4,11 +4,17 @@ import std::stdio::(STDOUT)
 
 # Based on https://deniskyashif.com/2019/02/17/implementing-a-regular-expression-engine/
 
+
+# State is basically a container for transitions so we can replace
+# states with new transitions while constructing an NFA.
 class pub State {
+  # The owned next transition(s) this state is currently wrapping.
   let @transition: Transition
+  # Mark to avoid cycles when transitioning states
   let @mark_for_cycle_detection: Bool
 
 
+  # Construct a new state, wrapping the provided transition
   fn static new(transition: Transition) -> State {
     State {
       @transition = transition,
@@ -16,6 +22,7 @@ class pub State {
     }
   }
 
+  # Construct a new state wrapping a new End transition
   fn pub static end() -> State {
     State {
       @transition = Transition.End,
@@ -23,6 +30,7 @@ class pub State {
     }
   }
 
+  # Check whether or not this is an end state
   fn pub end?() -> Bool {
     match @transition {
       case End -> true
@@ -30,10 +38,14 @@ class pub State {
     }
   }
 
+  # Replace the contained transition with a new one
   fn mut replace(new_transition: Transition) -> Transition {
     @transition := new_transition
   }
 
+  # Clear cycle detection marks recursively, starting at this state.
+  #
+  # Only warks marks until an uncleared mark is detected.
   fn mut clear_cycle_detection_marks() {
     if (@mark_for_cycle_detection) {
       @mark_for_cycle_detection = false
@@ -100,11 +112,18 @@ impl Format for State {
   }
 }
 
+
+# ADT for the various kinds of transitions a state can model.
 class pub enum Transition {
+  # The state containing this transition is an accepting End state with no further transitions
   case End
+  # Transition to a new state if the given (single) character matches the one in the pattern
   case Symbol(String, State)
+  # Transition to the next (owned) state without advancing a character (epsilon transition)
   case Empty(State)
+  # Transition to the next (reference) state without advancing a character (epsilon transition)
   case Reference(mut State)
+  # Store up to two transitions. In practice, these will both be epsilon transitions.
   case Split(Transition, Transition)
 }
 
@@ -147,17 +166,17 @@ impl Format for Transition {
   }
 }
 
+# Represent a Non-deterministic finite state automaton for a regular expression.
+#
+# We only need to store the start state and a reference to the end state. This
+# is enough for the various transition types to merge NFA's based on the various
+# induction rules of (basic) regular expressions.
 class pub Nfa {
   let @end: mut State
   let @start: State
 
-  fn static new(start: State, end: mut State) -> Nfa {
-    Nfa {
-      @start=start,
-      @end=end
-    }
-  }
-
+  # Construct a new, empty NFA comprised of a start state with an epsilon transition
+  # to an empty state. S -ε-> E
   fn pub static empty() -> Nfa {
     let end = State.end
     let end_ref = mut end
@@ -169,6 +188,10 @@ class pub Nfa {
     }
   }
 
+  # Construct a new symbol NFA, comprised of a start state with a symbol transition
+  # to an end state.
+  #
+  # S -a-> E
   fn pub static symbol(char: String) -> Nfa {
     let end = State.end
     let end_ref = mut end
@@ -180,6 +203,7 @@ class pub Nfa {
     }
   }
 
+  # Concatenate the provided NFA to ourselves. (AND expression)
   fn pub mut concat(other: Nfa) {
     match other {
       case {@end=other_end, @start=other_start} -> {
@@ -189,6 +213,7 @@ class pub Nfa {
     }
   }
 
+  # Union the provided NFA with ourselves. (OR expression)
   fn pub mut union(other: Nfa) {
     match other {
       case {@end=other_end, @start=other_start} -> {
@@ -204,6 +229,7 @@ class pub Nfa {
     }
   }
 
+  # Turn the current NFA into one that can be matched zero or more times
   fn pub mut zero_or_more() {
     let old_start = State.new(@start.replace(Transition.End))
     let new_end = State.end
@@ -212,6 +238,7 @@ class pub Nfa {
     @end.replace(Transition.Split(Transition.Reference(old_start_ref), Transition.Empty(new_end)))
   }
 
+  # Turn the current NFA into one that can be matched one or more times
   fn pub mut one_or_more() {
     let old_start = State.new(@start.replace(Transition.End))
     let old_start_ref = mut old_start
@@ -219,11 +246,17 @@ class pub Nfa {
     @end.replace(Transition.Split(Transition.Reference(old_start_ref), Transition.Empty(new_end)))
   }
 
+  # Turn the current NFA into one that can be matched zero or one times
   fn pub mut zero_or_one() {
     let old_start = State.new(@start.replace(Transition.End))
     @start.replace(Transition.Split(Transition.Reference(@end), Transition.Empty(old_start)))
   }
 
+  # Return true if the provided word matches the regular expression encoded in this NFA.
+  #
+  # Currently, match is defined as "an end state is reached starting from the currennt state".
+  # Specifically, it is possible for a match to return true even if not all characetrs in the
+  # provided word have been matched.
   fn pub mut match(word: String) -> Bool {
     let mut current_states = [mut @start]
     let characters = word.characters

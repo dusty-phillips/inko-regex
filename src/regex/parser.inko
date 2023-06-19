@@ -47,7 +47,7 @@ class pub enum TreeNode {
   case UnionExpression(TreeNode, TreeNode) # <term> | <expr>
 
 
-  # Utility method to output an indent-separated htree of nodes
+  # Utility method to output an indent-separated tree of nodes
   fn pub debug(indent: String) -> String {
     let next_indent = indent + "  "
     match self {
@@ -72,6 +72,11 @@ class pub enum TreeNode {
     }
   }
 
+  # Convert the parse tree to an NFA so it can be used for future matching.
+  #
+  # At some point, I want the parser to spit out NFAs directly instead
+  # of maintaining this intermediate tree state, but during debugging
+  # and development I wanted to keep the steps separated.
   fn pub to_nfa() -> Nfa {
     match self {
       case Character(character) -> Nfa.symbol(character)

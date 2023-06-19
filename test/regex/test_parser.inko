@@ -319,6 +319,6 @@ fn pub tests(t: mut Tests) {
     let nfa = tree.to_nfa
 
     t.equal(nfa.match('\\'), true)
-    # t.equal(nfa.match('\*'), false) # fails, program bug
+    t.equal(nfa.match('*'), false)
   }
 }

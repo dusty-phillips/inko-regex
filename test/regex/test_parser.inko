@@ -125,7 +125,7 @@ fn pub tests(t: mut Tests) {
     t.equal(nfa.match('a'), true)
     t.equal(nfa.match('aa'), true)
     t.equal(nfa.match('aaaaaaaaa'), true)
-    # t.equal(nfa.match('b'), false) # fails; program bug
+    t.equal(nfa.match('b'), true) # true because "zero a's" matches
   }
 
 
@@ -146,10 +146,12 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
+    STDOUT.new.print(fmt(nfa))
+
     t.equal(nfa.match('a'), true)
     t.equal(nfa.match('aa'), true)
     t.equal(nfa.match(''), true)
-    # t.equal(nfa.match('b'), false) # fails, program bug
+    t.equal(nfa.match('b'), true) # true because "zero a's" matches
   }
 
   t.test("Parse a single character one or more") fn (t) {

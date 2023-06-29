@@ -8,54 +8,180 @@ fn pub tests(t: mut Tests) {
     let nfa = Nfa.empty
     nfa.concat(Nfa.empty)
 
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let start = State.new(Transition.Empty(
+        State.new(Transition.Empty(
+          State.new(Transition.Empty(
+            end
+          ))
+        ))
+      ))
+      Nfa.new(start, end_mut)
+    }
 
-    t.equal(fmt(nfa), "Nfa \{
-()-ε->
-()-ε->
-()-ε->
-()--->(End)
-}") }
+    t.equal(nfa, expected)
+  }
 
   t.test("Concat two symbol NFAs") fn (t) {
     let nfa = Nfa.symbol("a")
     nfa.concat(Nfa.symbol("b"))
 
-    t.equal(fmt(nfa), "Nfa \{
-()-a->
-()-ε->
-()-b->
-()--->(End)
-}") }
+
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let start = State.new(Transition.Symbol(
+        "a", State.new(Transition.Empty(
+          State.new(Transition.Symbol("b", end))
+        ))
+      ))
+      Nfa.new(start, end_mut)
+    }
+
+    t.equal(nfa, expected)
+
+
+  }
 
   t.test("Union two empty NFAs") fn (t) {
     let nfa = Nfa.empty
     nfa.union(Nfa.empty)
+
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let start = State.new(Transition.Split(
+        Transition.Empty(
+          State.new(Transition.Empty(State.new(Transition.Reference(end_mut))))
+        ),
+        Transition.Empty(
+          State.new(Transition.Empty(State.new(Transition.Empty(end))))
+        )
+      ))
+
+      Nfa.new(start, end_mut)
+    }
+
+
+    t.equal(nfa, expected)
   }
 
   t.test("Union two symbol NFAs") fn (t) {
     let nfa = Nfa.symbol("a")
     nfa.union(Nfa.symbol("b"))
+
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let start = State.new(Transition.Split(
+        Transition.Empty(
+          State.new(Transition.Symbol("a", State.new(Transition.Reference(end_mut))))
+        ),
+        Transition.Empty(
+          State.new(Transition.Symbol("b", State.new(Transition.Empty(end))))
+        )
+      ))
+
+      Nfa.new(start, end_mut)
+    }
+
+    t.equal(nfa, expected)
   }
 
   t.test("zero or more on empty NFA") fn (t) {
     let nfa = Nfa.empty
     nfa.zero_or_more
+
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let old_end = State.end
+      let old_end_mut = mut old_end
+      let old_start = State.new(Transition.Empty(old_end))
+      old_end_mut.replace(Transition.Split(Transition.Reference(old_start), Transition.Empty(end)))
+      let start = State.new(Transition.Split(Transition.Reference(end_mut), Transition.Empty(old_start)))
+
+      Nfa.new(start, end_mut)
+    }
+
+    t.equal(nfa, expected)
   }
 
 
   t.test("zero or more on symbol NFA") fn (t) {
     let nfa = Nfa.symbol("a")
     nfa.zero_or_more
+
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let old_end = State.end
+      let old_end_mut = mut old_end
+      let old_start = State.new(Transition.Symbol("a", old_end))
+      old_end_mut.replace(Transition.Split(Transition.Reference(old_start), Transition.Empty(end)))
+      let start = State.new(Transition.Split(Transition.Reference(end_mut), Transition.Empty(old_start)))
+
+      Nfa.new(start, end_mut)
+    }
+
+    t.equal(nfa, expected)
   }
 
   t.test("one or more on empty NFA") fn (t) {
     let nfa = Nfa.empty
     nfa.one_or_more
+
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let old_end = State.end
+      let old_end_mut = mut old_end
+      let old_start = State.new(Transition.Empty(old_end))
+      old_end_mut.replace(Transition.Split(Transition.Reference(old_start), Transition.Empty(end)))
+      let start = State.new(Transition.Empty(old_start))
+
+      Nfa.new(start, end_mut)
+    }
+
+    t.equal(nfa, expected)
   }
 
 
   t.test("one or more on symbol NFA") fn (t) {
-    let nfa = Nfa.symbol("a")
+    let nfa = Nfa.symbol('a')
     nfa.one_or_more
+
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let old_end = State.end
+      let old_end_mut = mut old_end
+      let old_start = State.new(Transition.Symbol('a', old_end))
+      old_end_mut.replace(Transition.Split(Transition.Reference(old_start), Transition.Empty(end)))
+      let start = State.new(Transition.Empty(old_start))
+
+      Nfa.new(start, end_mut)
+    }
+
+    t.equal(nfa, expected)
+  }
+
+
+  t.test("zero or one on empty NFA") fn (t) {
+    let nfa = Nfa.empty
+    nfa.zero_or_one
+
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let old_start = State.new(Transition.Empty(end))
+      let start = State.new(Transition.Split(Transition.Reference(end_mut), Transition.Empty(old_start)))
+
+      Nfa.new(start, end_mut)
+    }
+
+    t.equal(nfa, expected)
   }
 }

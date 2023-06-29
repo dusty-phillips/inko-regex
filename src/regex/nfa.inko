@@ -1,6 +1,5 @@
-import std::fmt::(Format, Formatter, fmt)
+import std::fmt::(Format, Formatter, fmt as format)
 import std::cmp::(Equal)
-import std::stdio::(STDOUT)
 
 # Based on https://deniskyashif.com/2019/02/17/implementing-a-regular-expression-engine/
 
@@ -15,7 +14,10 @@ class pub State {
 
 
   # Construct a new state, wrapping the provided transition
-  fn static new(transition: Transition) -> State {
+  #
+  # This shouldn't need to be called publicly in general, but is marked
+  # as public for unit test purposes.
+  fn pub static new(transition: Transition) -> State {
     State {
       @transition = transition,
       @mark_for_cycle_detection = false
@@ -39,7 +41,9 @@ class pub State {
   }
 
   # Replace the contained transition with a new one
-  fn mut replace(new_transition: Transition) -> Transition {
+  #
+  # This isn't really meant to be used publicly, but is made pub for unit testing
+  fn pub mut replace(new_transition: Transition) -> Transition {
     @transition := new_transition
   }
 
@@ -65,14 +69,15 @@ class pub State {
   }
 
   # After calling this, next_states_collector will contain refs to all States that are accessible
-  # from this state via either:
-  # * A symbol transition with the given symbol
-  # * A End state
-  # by skipping over any empty, reference, or split transitions in the middle
+  # from this state via empty transitions.
   #
-  # A side effect of this function is that it marks states for cycle detection.
-  # You must call clear_cycle_detection_marks before calling it again with a new symbol.
-  fn mut skip_to_symbol_transitions(char: String, next_states_collector: mut Array[ref State]) {
+  # The returned states will all contain either Symbol or End transitions.
+  #
+  # A side effect of this function is that it marks states for cycle detection,
+  # as it has to break out of recursive loops itself.
+  #
+  # You MUST call clear_cycle_detection_marks before calling it again with a new symbol.
+  fn mut skip_to_symbol_transitions(next_states_collector: mut Array[ref State]) {
     if (@mark_for_cycle_detection) {
       return
     }
@@ -80,17 +85,16 @@ class pub State {
 
     match @transition {
       case End -> next_states_collector.push(self)
-      case Symbol(character_to_match, state) if character_to_match == char -> next_states_collector.push(state)
-      case Symbol(_, _) -> nil
-      case Reference(state) -> state.skip_to_symbol_transitions(char, next_states_collector)
-      case Empty(state) -> state.skip_to_symbol_transitions(char, next_states_collector)
+      case Symbol(symbol, state) -> next_states_collector.push(self)
+      case Reference(state) -> state.skip_to_symbol_transitions(next_states_collector)
+      case Empty(state) -> state.skip_to_symbol_transitions(next_states_collector)
       case Split(Empty(state1), Empty(state2)) -> {
-        state1.skip_to_symbol_transitions(char, next_states_collector)
-        state2.skip_to_symbol_transitions(char, next_states_collector)
+        state1.skip_to_symbol_transitions(next_states_collector)
+        state2.skip_to_symbol_transitions(next_states_collector)
       }
       case Split(Reference(state1), Empty(state2)) -> {
-        state1.skip_to_symbol_transitions(char, next_states_collector)
-        state2.skip_to_symbol_transitions(char, next_states_collector)
+        state1.skip_to_symbol_transitions(next_states_collector)
+        state2.skip_to_symbol_transitions(next_states_collector)
       }
       case Split(_, _) -> panic("Unexpected split encountered during skip_to_symbol_transitions")
     }
@@ -100,7 +104,9 @@ class pub State {
 impl Equal[State] for State {
   fn pub ==(other: ref State) -> Bool {
     match (self, other) {
-      case ({@transition=transition}, {@transition=other_transition}) -> transition == other_transition
+      case ({@transition=transition}, {@transition=other_transition}) -> {
+        transition == other_transition
+      }
     }
   }
 }
@@ -133,7 +139,7 @@ impl Equal[Transition] for Transition {
       case (End, End) -> true
       case (Symbol(char, state), Symbol(other_char, other_state)) -> char == other_char and state == other_state
       case (Empty(state), Empty(other_state)) -> state == other_state
-      case (Reference(state), Reference(other_state)) -> state == other_state
+      case (Reference(state), Reference(other_state)) -> true # TODO: This doesn't verify *where* the ref points
       case(Split(t1, t2), Split(other_t1, other_t2)) -> t1 == other_t1 and t2 == other_t2
       case (_, _) -> false
     }
@@ -159,7 +165,7 @@ impl Format for Transition {
       }
       case Split(t1, t2) -> {
         t1.fmt(formatter)
-        formatter.write("\n  ")
+        formatter.write("  ")
         t2.fmt(formatter)
       }
     }
@@ -172,8 +178,19 @@ impl Format for Transition {
 # is enough for the various transition types to merge NFA's based on the various
 # induction rules of (basic) regular expressions.
 class pub Nfa {
-  let @end: mut State
+  let pub @end: mut State
   let @start: State
+
+  # Construct a new NFA from component states.
+  #
+  # This isn't really intended to be called publicly, but is made available
+  # for unit testing.
+  fn pub static new(start: State, end: mut State) -> Nfa {
+    Nfa {
+        @start=start,
+        @end=end
+    }
+  }
 
   # Construct a new, empty NFA comprised of a start state with an epsilon transition
   # to an empty state. S -ε-> E
@@ -229,24 +246,36 @@ class pub Nfa {
     }
   }
 
-  # Turn the current NFA into one that can be matched zero or more times
+  # Turn the current NFA into one that can be matched zero or more times (*)
   fn pub mut zero_or_more() {
     let old_start = State.new(@start.replace(Transition.End))
-    let new_end = State.end
     let old_start_ref = mut old_start
+    let new_end = State.end
+    let new_end_ref = mut new_end
     @start.replace(Transition.Split(Transition.Reference(mut new_end), Transition.Empty(old_start)))
     @end.replace(Transition.Split(Transition.Reference(old_start_ref), Transition.Empty(new_end)))
+    @end = new_end_ref
   }
 
-  # Turn the current NFA into one that can be matched one or more times
+  # Turn the current NFA into one that can be matched one or more times (+)
+  #
+  # []-->([]-->[])-->[]
+  #           |
+  #       \----/
   fn pub mut one_or_more() {
     let old_start = State.new(@start.replace(Transition.End))
     let old_start_ref = mut old_start
     let new_end = State.new(@start.replace(Transition.Empty(old_start)))
+    let new_end_ref = mut new_end
     @end.replace(Transition.Split(Transition.Reference(old_start_ref), Transition.Empty(new_end)))
+    @end = new_end_ref
   }
 
-  # Turn the current NFA into one that can be matched zero or one times
+  # Turn the current NFA into one that can be matched zero or one times (?)
+  #
+  # [] ->([]-->[])
+  # |          
+  # \---------/
   fn pub mut zero_or_one() {
     let old_start = State.new(@start.replace(Transition.End))
     @start.replace(Transition.Split(Transition.Reference(@end), Transition.Empty(old_start)))
@@ -261,19 +290,41 @@ class pub Nfa {
     let mut current_states = [mut @start]
     let characters = word.characters
     let mut character_option = characters.next
+
     while (character_option).some? {
       let character = character_option.unwrap
       let mut next_states: Array[mut State] = []
       current_states.iter_mut.each fn (state) {
-        state.skip_to_symbol_transitions(character, next_states)
+        state.skip_to_symbol_transitions(next_states)
         state.clear_cycle_detection_marks
       }
-      current_states = next_states
+
+      # next_states now contains only Symbol or End transitions
+      if next_states.iter.any?(fn (state) {state.end?}) {
+        return true
+      }
+
+      # next_states now contains only Symbol transitions
+      current_states = (next_states.iter_mut.select_map fn (state) {
+        match state.transition {
+          case Symbol(char, next_state) if char == character -> Option.Some(next_state)
+          case Symbol(_, _) -> Option.None
+          case _ -> panic("Unexpected transition in next_states")
+        }
+      }).to_array
       character_option = characters.next
+      # current_states now contains only states that came after symbol transitions
     }
 
-    let match_found = current_states.iter.find fn (state) {state.end?}
-    match_found.some?
+
+    let final_states = []
+    current_states.iter_mut.each fn (state) {
+      state.skip_to_symbol_transitions(final_states)
+      state.clear_cycle_detection_marks
+    }
+
+    return final_states.iter.any?(fn (state) {state.end?})
+
   }
 }
 

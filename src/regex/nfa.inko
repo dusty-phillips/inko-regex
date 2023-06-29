@@ -55,14 +55,17 @@ class pub State {
       @mark_for_cycle_detection = false
       match @transition {
         case End -> nil
-        case Reference(_) -> nil
+        case Reference(state) -> state.clear_cycle_detection_marks
         case Symbol(string, state) -> state.clear_cycle_detection_marks
         case Empty(state) -> state.clear_cycle_detection_marks
         case Split(Empty(state1), Empty(state2)) -> {
           state1.clear_cycle_detection_marks
           state2.clear_cycle_detection_marks
         }
-        case Split(Reference(_), Empty(state)) -> state.clear_cycle_detection_marks
+        case Split(Reference(state1), Empty(state2)) -> {
+          state1.clear_cycle_detection_marks
+          state2.clear_cycle_detection_marks
+        }
         case Split(_, _) -> panic("Unexpected split encountered during clear_cycle_detection_marks")
       }
     }

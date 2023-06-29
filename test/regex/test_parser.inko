@@ -3,6 +3,7 @@ import std::stdio::(STDOUT)
 import std::fmt::(fmt)
 import std::test::Tests
 import regex::parser::(TreeNode, Parser)
+import regex::nfa::(Nfa, State, Transition)
 
 fn pub tests(t: mut Tests) {
   t.test("Parse a single character") fn (t) {
@@ -79,9 +80,27 @@ fn pub tests(t: mut Tests) {
     let tree = parser.parse()
     t.equal(tree, expected)
 
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let start = State.new(Transition.Split(
+        Transition.Empty(
+          State.new(Transition.Symbol("a", State.new(Transition.Reference(end_mut))))
+        ),
+        Transition.Empty(
+          State.new(Transition.Symbol("b", State.new(Transition.Empty(end))))
+        )
+      ))
+
+      Nfa.new(start, end_mut)
+    }
+
     let nfa = tree.to_nfa
+    t.equal(nfa, expected)
+
     t.equal(nfa.match('a'), true)
-    # t.equal(nfa.match('b'), true) # fails, program bug
+    t.equal(nfa.match('a'), true)
+    t.equal(nfa.match('b'), true)
     t.equal(nfa.match('c'), false)
   }
 
@@ -102,11 +121,11 @@ fn pub tests(t: mut Tests) {
 
 
     let nfa = tree.to_nfa
+    t.equal(nfa.match(''), true)
     t.equal(nfa.match('a'), true)
     t.equal(nfa.match('aa'), true)
     t.equal(nfa.match('aaaaaaaaa'), true)
-    # t.equal(nfa.match(''), true) # fails, program bug
-    t.equal(nfa.match('b'), false)
+    # t.equal(nfa.match('b'), false) # fails; program bug
   }
 
 
@@ -129,7 +148,7 @@ fn pub tests(t: mut Tests) {
 
     t.equal(nfa.match('a'), true)
     t.equal(nfa.match('aa'), true)
-    # t.equal(nfa.match(''), true) # fails, program bug
+    t.equal(nfa.match(''), true)
     # t.equal(nfa.match('b'), false) # fails, program bug
   }
 
@@ -152,8 +171,9 @@ fn pub tests(t: mut Tests) {
 
     t.equal(nfa.match(''), false)
     t.equal(nfa.match('a'), true)
-    # t.equal(nfa.match('aa'), true) # error, program bug
-    # t.equal(nfa.match('aaaa'), true) # error program bug
+    t.equal(nfa.match('a'), true)
+    t.equal(nfa.match('aa'), true)
+    t.equal(nfa.match('aaaa'), true)
     t.equal(nfa.match('b'), false)
   }
 
@@ -255,7 +275,7 @@ fn pub tests(t: mut Tests) {
     let nfa = tree.to_nfa
 
     t.equal(nfa.match('ab'), true)
-    # t.equal(nfa.match(''), true) # fails, program bug
+    t.equal(nfa.match(''), true)
   }
 
 

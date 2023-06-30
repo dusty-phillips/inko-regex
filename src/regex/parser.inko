@@ -1,7 +1,6 @@
 import std::iter::(Iter)
 import std::fmt::(Format, Formatter)
 import std::cmp::(Equal)
-import std::stdio::STDOUT
 import regex::nfa::(Nfa)
 
 # Based on https://deniskyashif.com/2020/08/17/parsing-regex-with-recursive-descent/
@@ -27,126 +26,250 @@ fn meta_char?(char: String) -> Bool {
   return char == '*' or char == '+' or char == '?'
 }
 
-# Represents a node in a regex parse tree. Grammar is described above.
-class pub enum TreeNode {
-  case Character(String) # any character excluding escaped characters
-  case EscapedCharacter(String) # \*, \+, \?
-
-  case GroupedAtom(TreeNode) # (<expr>)
-  case CharacterAtom(TreeNode) # <character>
-
-  case SingleFactor(TreeNode) # <atom>
-  case ZeroOrMoreFactor(TreeNode) # <atom> *
-  case ZeroOrOneFactor(TreeNode) # <atom> ?
-  case OneOrMoreFactor(TreeNode) # <atom> +
-
-  case SingleTerm(TreeNode) # <factor>
-  case ConcatTerm(TreeNode, TreeNode) # <factor><term>
-
-  case SingleExpression(TreeNode) # <term>
-  case UnionExpression(TreeNode, TreeNode) # <term> | <expr>
-
-
-  # Utility method to output an indent-separated tree of nodes
-  fn pub debug(indent: String) -> String {
-    let next_indent = indent + "  "
-    match self {
-      case Character(char) -> "{indent}Character {char}\n"
-      case EscapedCharacter(char) -> "{indent} EscapedCharacter {char}\n"
-
-
-      case GroupedAtom(expression) -> "{indent}Atom (Group)\n{expression.debug(next_indent)}"
-      case CharacterAtom(character) -> "{indent}Atom (Character)\n{character.debug(next_indent)}"
-
-
-      case SingleFactor(atom) -> "{indent}Factor (Atom)\n{atom.debug(next_indent)}"
-      case ZeroOrMoreFactor(atom) -> "{indent}Factor (ZeroOrMore)\n{atom.debug(next_indent)}"
-      case ZeroOrOneFactor(atom) -> "{indent}Factor (ZeroOrOne)\n{atom.debug(next_indent)}"
-      case OneOrMoreFactor(atom) -> "{indent}Factor (OneOrMore)\n{atom.debug(next_indent)}"
-
-      case SingleTerm(term) -> "{indent}Term (Single Factor)\n{term.debug(next_indent)}"
-      case ConcatTerm(factor, term) -> "{indent}Term (Concat)\n{factor.debug(next_indent)}{term.debug(next_indent)}"
-
-      case SingleExpression(term) -> "{indent}Expression (Term)\n{term.debug(next_indent)}"
-      case UnionExpression(term, expression) -> "{indent}Expression (Union)\n{term.debug(next_indent)}{expression.debug(next_indent)}"
-    }
-  }
+trait pub TreeNode[T]: Format + Equal[T] {
 
   # Convert the parse tree to an NFA so it can be used for future matching.
   #
   # At some point, I want the parser to spit out NFAs directly instead
   # of maintaining this intermediate tree state, but during debugging
   # and development I wanted to keep the steps separated.
+  fn pub to_nfa() -> Nfa
+}
+
+class pub enum Leaf {
+  case Character(String) # any character excluding escaped characters
+  case EscapedCharacter(String) # \*, \+, \?
+}
+
+
+impl Format for Leaf {
+  fn pub fmt(formatter: mut Formatter) {
+    match self {
+      case Character(char) -> formatter.write("Character {char}\n")
+      case EscapedCharacter(char) -> formatter.write("EscapedCharacter {char}\n")
+    }
+  }
+}
+
+
+impl Equal[Leaf] for Leaf {
+  fn pub ==(other: ref Leaf) -> Bool {
+    match (self, other) {
+      case (Character(char), Character(other_char)) -> char == other_char
+      case (EscapedCharacter(char), EscapedCharacter(other_char)) -> char == other_char
+      case _ -> false
+    }
+  }
+}
+
+impl TreeNode[Leaf] for Leaf {
   fn pub to_nfa() -> Nfa {
     match self {
       case Character(character) -> Nfa.symbol(character)
       case EscapedCharacter(character) -> Nfa.symbol(character)
+    }
+  }
 
-      case GroupedAtom(expression) -> expression.to_nfa
-      case CharacterAtom(atom) -> atom.to_nfa
+}
 
-      case SingleFactor(factor) -> factor.to_nfa
-      case ZeroOrMoreFactor(factor) -> {
-        let nfa = factor.to_nfa
-        nfa.zero_or_more
-        nfa
-      }
-      case ZeroOrOneFactor(factor) -> {
-        let nfa = factor.to_nfa
-        nfa.zero_or_one
-        nfa
-      }
-      case OneOrMoreFactor(factor) -> {
-        let nfa = factor.to_nfa
-        nfa.one_or_more
-        nfa
-      }
+class pub enum Atom {
+  case Grouped(Expression) # (<expr>)
+  case Character(Leaf) # <character>
+}
 
-      case SingleTerm(term) -> term.to_nfa
-      case ConcatTerm(factor, term) -> {
-        let nfa = factor.to_nfa
-        let other_nfa = term.to_nfa
-        nfa.concat(other_nfa)
-        nfa
+impl Format for Atom {
+  fn pub fmt(formatter: mut Formatter) {
+    match self {
+      case Grouped(expression) -> {
+        formatter.write("Atom (Group)\n")
+        expression.fmt(formatter)
       }
-      case SingleExpression(term) -> term.to_nfa
-      case UnionExpression(term, expression) -> {
-        let nfa = term.to_nfa
-        let other_nfa = expression.to_nfa
-        nfa.union(other_nfa)
-        nfa
+      case Character(character) -> {
+        formatter.write("Atom (Character)\n  ")
+        character.fmt(formatter)
       }
     }
   }
 }
 
-impl Format for TreeNode {
-  fn pub fmt(formatter: mut Formatter) {
-    formatter.write(self.debug(""))
+impl Equal[Atom] for Atom {
+  fn pub ==(other: ref Atom) -> Bool {
+    match (self, other) {
+      case(Grouped(node), Grouped(other_node)) -> node == other_node
+      case (Character(node), Character(other_node)) -> node == other_node
+      case _ -> false
+    }
   }
 }
 
-impl Equal[TreeNode] for TreeNode {
-  # Compare a node as equal to other node recursively.
-  fn pub ==(other: ref TreeNode) -> Bool {
+impl TreeNode[Atom] for Atom {
+  fn pub to_nfa() -> Nfa {
+    match self {
+      case Grouped(expression) -> expression.to_nfa
+      case Character(atom) -> atom.to_nfa
+    }
+  }
+}
+
+
+class pub enum Factor {
+  case Single(Atom) # <atom>
+  case ZeroOrMore(Atom) # <atom> *
+  case ZeroOrOne(Atom) # <atom> ?
+  case OneOrMore(Atom) # <atom> +
+}
+
+impl Format for Factor {
+  fn pub fmt(formatter: mut Formatter) {
+    match (self) {
+      case Single(atom) -> {
+        formatter.write("Factor (Atom)\n)")
+        atom.fmt(formatter)
+      }
+      case ZeroOrMore(atom) -> {
+        formatter.write("Factor (ZeroOrMore)\n")
+        atom.fmt(formatter)
+      }
+      case ZeroOrOne(atom) -> {
+        formatter.write("Factor (ZeroOrOne)\n")
+        atom.fmt(formatter)
+      }
+      case OneOrMore(atom) -> {
+        formatter.write("Factor (OneOrMore)\n")
+        atom.fmt(formatter)
+      }
+    }
+  }
+}
+
+impl Equal[Factor] for Factor {
+  fn pub ==(other: ref Factor) -> Bool {
     match (self, other) {
-      case (Character(char), Character(other_char)) -> char == other_char
-      case (EscapedCharacter(char), EscapedCharacter(other_char)) -> char == other_char
+      case(Single(node), Single(other_node)) -> node == other_node
+      case(ZeroOrOne(node), ZeroOrOne(other_node)) -> node == other_node
+      case(ZeroOrMore(node), ZeroOrMore(other_node)) -> node == other_node
+      case(OneOrMore(node), OneOrMore(other_node)) -> node == other_node
+      case _ -> false
+    }
+  }
+}
 
-      case(GroupedAtom(node), GroupedAtom(other_node)) -> node == other_node
-      case (CharacterAtom(node), CharacterAtom(other_node)) -> node == other_node
+impl TreeNode[Factor] for Factor {
+  fn pub to_nfa() -> Nfa {
+    match self {
+      case Single(factor) -> factor.to_nfa
+      case ZeroOrMore(factor) -> {
+        let nfa = factor.to_nfa
+        nfa.zero_or_more
+        nfa
+      }
+      case ZeroOrOne(factor) -> {
+        let nfa = factor.to_nfa
+        nfa.zero_or_one
+        nfa
+      }
+      case OneOrMore(factor) -> {
+        let nfa = factor.to_nfa
+        nfa.one_or_more
+        nfa
+      }
 
-      case(ZeroOrOneFactor(node), ZeroOrOneFactor(other_node)) -> node == other_node
-      case(ZeroOrMoreFactor(node), ZeroOrMoreFactor(other_node)) -> node == other_node
-      case(OneOrMoreFactor(node), OneOrMoreFactor(other_node)) -> node == other_node
+    }
+  }
+}
 
-      case (SingleTerm(node), SingleTerm(other_node)) -> node == other_node
-      case (ConcatTerm(node1, node2), ConcatTerm(other_node1, other_node2)) -> node1 == other_node1 and node2 == other_node2
+class pub enum Term {
+  case Single(Factor) # <factor>
+  case Concat(Factor, Term) # <factor><term>
+}
 
-      case (SingleExpression(node), SingleExpression(other_node)) -> node == other_node
-      case (UnionExpression(node1, node2), UnionExpression(other_node1, other_node2)) -> node1 == other_node1 and node2 == other_node2
-      case(SingleFactor(node), SingleFactor(other_node)) -> node == other_node
-      case _ -> false # Warning: false negative instead of compile error if you forget to update the match statement
+impl Format for Term {
+  fn pub fmt(formatter: mut Formatter) {
+    match (self) {
+      case Single(term) -> {
+        formatter.write("Term (Single Factor)\n")
+        term.fmt(formatter)
+      }
+      case Concat(factor, term) -> {
+        formatter.write("Term (Concat)\n")
+        factor.fmt(formatter)
+        term.fmt(formatter)
+      }
+    }
+  }
+}
+
+impl Equal[Term] for Term {
+  fn pub ==(other: ref Term) -> Bool {
+    match (self, other) {
+      case (Single(node), Single(other_node)) -> node == other_node
+      case (Concat(node1, node2), Concat(other_node1, other_node2)) -> node1 == other_node1 and node2 == other_node2
+      case _ -> false
+    }
+  }
+}
+
+
+impl TreeNode[Term] for Term {
+  fn pub to_nfa() -> Nfa {
+    match self {
+      case Single(term) -> term.to_nfa
+      case Concat(factor, term) -> {
+        let nfa = factor.to_nfa
+        let other_nfa = term.to_nfa
+        nfa.concat(other_nfa)
+        nfa
+      }
+
+    }
+  }
+}
+
+
+# Represents a node in a regex parse tree. Grammar is described above.
+class pub enum Expression {
+  case Single(Term) # <term>
+  case Union(Term, Expression) # <term> | <expr>
+}
+
+
+impl Format for Expression {
+  fn pub fmt(formatter: mut Formatter) {
+    match (self) {
+      case Single(term) -> {
+        formatter.write("Expression (Term)\n")
+        term.fmt(formatter)
+      }
+      case Union(term, expression) -> {
+        formatter.write("Expression (Union)\n")
+        term.fmt(formatter)
+        expression.fmt(formatter)
+      }
+    }
+  }
+}
+
+impl Equal[Expression] for Expression {
+  fn pub ==(other: ref Expression) -> Bool {
+    match (self, other) {
+      case (Single(node), Single(other_node)) -> node == other_node
+      case (Union(node1, node2), Union(other_node1, other_node2)) -> node1 == other_node1 and node2 == other_node2
+      case _ -> false
+    }
+  }
+}
+
+
+impl TreeNode[Expression] for Expression {
+  fn pub to_nfa() -> Nfa {
+    match self {
+      case Single(term) -> term.to_nfa
+      case Union(term, expression) -> {
+        let nfa = term.to_nfa
+        let other_nfa = expression.to_nfa
+        nfa.union(other_nfa)
+        nfa
+      }
     }
   }
 }
@@ -214,41 +337,41 @@ class pub Parser {
   }
 
   # Convert the pattern to a parsed tree
-  fn pub mut parse() -> TreeNode {
+  fn pub mut parse() -> Expression {
     self.expression()
   }
 
   # Eat an expression off the parser and return it.
   #
   # <term> | <term>'|'<expr>
-  fn mut expression() -> TreeNode {
+  fn mut expression() -> Expression {
     let term = self.term
 
     match @pattern_iter.peek {
-      case None -> TreeNode.SingleExpression(term)
+      case None -> Expression.Single(term)
       case Some(char) if char == '|' -> {
         @pattern_iter.next
         let expression = self.expression
-        TreeNode.UnionExpression(term, expression)
+        Expression.Union(term, expression)
       }
-      case Some(char) -> TreeNode.SingleExpression(term)
+      case Some(char) -> Expression.Single(term)
     }
   }
 
   # Eat a term off the parser
   #
   # <factor> | <factor><term>
-  fn mut term() -> TreeNode {
+  fn mut term() -> Term {
     let factor = self.factor
 
     match @pattern_iter.peek {
-      case None -> TreeNode.SingleTerm(factor)
+      case None -> Term.Single(factor)
       case Some(char) if char == ")" or char == "|" -> {
-        TreeNode.SingleTerm(factor)
+        Term.Single(factor)
       }
       case Some(char) -> {
         let term = self.term
-        TreeNode.ConcatTerm(factor, term)
+        Term.Concat(factor, term)
       }
     }
   }
@@ -256,27 +379,27 @@ class pub Parser {
   # Eat a factor off the parser
   #
   # <atom> | <atom><meta-char>
-  fn mut factor() -> TreeNode {
+  fn mut factor() -> Factor {
     let atom = self.atom
     match @pattern_iter.peek {
-      case None -> TreeNode.SingleFactor(atom)
+      case None -> Factor.Single(atom)
       case Some(char) if meta_char?(char) -> {
           match @pattern_iter.next {
               case None -> panic("impossible")
-              case Some('*') -> TreeNode.ZeroOrMoreFactor(atom)
-              case Some('?') -> TreeNode.ZeroOrOneFactor(atom)
-              case Some('+') -> TreeNode.OneOrMoreFactor(atom)
+              case Some('*') -> Factor.ZeroOrMore(atom)
+              case Some('?') -> Factor.ZeroOrOne(atom)
+              case Some('+') -> Factor.OneOrMore(atom)
               case Some(char) -> panic("impossible")
           }
       }
-      case Some(char) -> TreeNode.SingleFactor(atom)
+      case Some(char) -> Factor.Single(atom)
     }
   }
 
   # Eat an atom off the parser
   #
   # <char> | '('<expr>')'
-  fn mut atom() -> TreeNode {
+  fn mut atom() -> Atom {
     match @pattern_iter.peek {
       case None -> panic("unexpected end of input")
       case Some(char) if char == '(' -> {
@@ -286,14 +409,14 @@ class pub Parser {
           case None -> panic("No closing )")
           case Some(')') -> {
             @pattern_iter.next
-            TreeNode.GroupedAtom(expression)
+            Atom.Grouped(expression)
           }
           case Some(char) -> panic("Expected ), got {char}")
         }
       }
       case Some(char) -> {
         let character = self.character
-        TreeNode.CharacterAtom(character)
+        Atom.Character(character)
       }
     }
   }
@@ -301,7 +424,7 @@ class pub Parser {
   # Eat a (possibly escaped) character off the parser
   #
   # <any-char-except-meta-char> | '\'<any-char>
-  fn mut character() -> TreeNode {
+  fn mut character() -> Leaf {
     match @pattern_iter.peek {
       case None -> panic("unexpected end of input")
       case Some(char) if meta_char?(char) -> panic("Unexpected meta char {char}")
@@ -309,12 +432,12 @@ class pub Parser {
         @pattern_iter.next
         match @pattern_iter.next {
           case None -> panic("Unexpected end of string after escape")
-          case Some(char) -> TreeNode.EscapedCharacter(char)
+          case Some(char) -> Leaf.EscapedCharacter(char)
         }
       }
       case Some(char) -> {
         @pattern_iter.next
-        TreeNode.Character(char)
+        Leaf.Character(char)
       }
     }
   }

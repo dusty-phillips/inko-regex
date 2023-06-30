@@ -1,17 +1,16 @@
 
-import std::stdio::(STDOUT)
 import std::fmt::(fmt)
 import std::test::Tests
-import regex::parser::(TreeNode, Parser)
+import regex::parser::(Expression, Term, Factor, Atom, Leaf, Parser)
 import regex::nfa::(Nfa, State, Transition)
 
 fn pub tests(t: mut Tests) {
   t.test("Parse a single character") fn (t) {
-    let expected = TreeNode.SingleExpression(
-      TreeNode.SingleTerm(
-        TreeNode.SingleFactor(
-          TreeNode.CharacterAtom(
-            TreeNode.Character('a')
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.Character(
+            Leaf.Character('a')
           )
         )
       )
@@ -28,17 +27,17 @@ fn pub tests(t: mut Tests) {
   }
 
   t.test("Parse two character concatenation") fn (t) {
-    let expected = TreeNode.SingleExpression(
-      TreeNode.ConcatTerm(
-        TreeNode.SingleFactor(
-          TreeNode.CharacterAtom(
-            TreeNode.Character('a')
+    let expected = Expression.Single(
+      Term.Concat(
+        Factor.Single(
+          Atom.Character(
+            Leaf.Character('a')
           )
         ),
-        TreeNode.SingleTerm(
-          TreeNode.SingleFactor(
-            TreeNode.CharacterAtom(
-              TreeNode.Character('b')
+        Term.Single(
+          Factor.Single(
+            Atom.Character(
+              Leaf.Character('b')
             )
           )
         )
@@ -58,19 +57,19 @@ fn pub tests(t: mut Tests) {
   }
 
   t.test("Parse a union of two characters") fn (t) {
-    let expected = TreeNode.UnionExpression(
-      TreeNode.SingleTerm(
-        TreeNode.SingleFactor(
-          TreeNode.CharacterAtom(
-            TreeNode.Character('a')
+    let expected = Expression.Union(
+      Term.Single(
+        Factor.Single(
+          Atom.Character(
+            Leaf.Character('a')
           )
         )
       ),
-      TreeNode.SingleExpression(
-        TreeNode.SingleTerm(
-          TreeNode.SingleFactor(
-            TreeNode.CharacterAtom(
-              TreeNode.Character('b')
+      Expression.Single(
+        Term.Single(
+          Factor.Single(
+            Atom.Character(
+              Leaf.Character('b')
             )
           )
         )
@@ -105,11 +104,11 @@ fn pub tests(t: mut Tests) {
   }
 
   t.test("Parse a single character zero or more") fn (t) {
-   let expected = TreeNode.SingleExpression(
-    TreeNode.SingleTerm(
-      TreeNode.ZeroOrMoreFactor(
-        TreeNode.CharacterAtom(
-          TreeNode.Character('a')
+   let expected = Expression.Single(
+    Term.Single(
+      Factor.ZeroOrMore(
+        Atom.Character(
+          Leaf.Character('a')
         )
       )
     )
@@ -130,11 +129,11 @@ fn pub tests(t: mut Tests) {
 
 
   t.test("Parse a single character zero or one") fn (t) {
-   let expected = TreeNode.SingleExpression(
-    TreeNode.SingleTerm(
-      TreeNode.ZeroOrOneFactor(
-        TreeNode.CharacterAtom(
-          TreeNode.Character('a')
+   let expected = Expression.Single(
+    Term.Single(
+      Factor.ZeroOrOne(
+        Atom.Character(
+          Leaf.Character('a')
         )
       )
     )
@@ -146,8 +145,6 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    STDOUT.new.print(fmt(nfa))
-
     t.equal(nfa.match('a'), true)
     t.equal(nfa.match('aa'), true)
     t.equal(nfa.match(''), true)
@@ -155,11 +152,11 @@ fn pub tests(t: mut Tests) {
   }
 
   t.test("Parse a single character one or more") fn (t) {
-   let expected = TreeNode.SingleExpression(
-    TreeNode.SingleTerm(
-      TreeNode.OneOrMoreFactor(
-        TreeNode.CharacterAtom(
-          TreeNode.Character('a')
+   let expected = Expression.Single(
+    Term.Single(
+      Factor.OneOrMore(
+        Atom.Character(
+          Leaf.Character('a')
         )
       )
     )
@@ -180,15 +177,15 @@ fn pub tests(t: mut Tests) {
   }
 
   t.test("Parse a single character grouping") fn (t) {
-    let expected = TreeNode.SingleExpression(
-      TreeNode.SingleTerm(
-        TreeNode.SingleFactor(
-          TreeNode.GroupedAtom(
-            TreeNode.SingleExpression(
-              TreeNode.SingleTerm(
-                TreeNode.SingleFactor(
-                  TreeNode.CharacterAtom(
-                    TreeNode.Character('a')
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.Grouped(
+            Expression.Single(
+              Term.Single(
+                Factor.Single(
+                  Atom.Character(
+                    Leaf.Character('a')
                   )
                 )
               )
@@ -209,21 +206,21 @@ fn pub tests(t: mut Tests) {
   }
 
   t.test("Parse a multi character grouping") fn (t) {
-    let expected = TreeNode.SingleExpression(
-      TreeNode.SingleTerm(
-        TreeNode.SingleFactor(
-          TreeNode.GroupedAtom(
-            TreeNode.SingleExpression(
-              TreeNode.ConcatTerm(
-                TreeNode.SingleFactor(
-                  TreeNode.CharacterAtom(
-                    TreeNode.Character('a')
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.Grouped(
+            Expression.Single(
+              Term.Concat(
+                Factor.Single(
+                  Atom.Character(
+                    Leaf.Character('a')
                   )
                 ),
-                TreeNode.SingleTerm(
-                  TreeNode.SingleFactor(
-                    TreeNode.CharacterAtom(
-                      TreeNode.Character('b')
+                Term.Single(
+                  Factor.Single(
+                    Atom.Character(
+                      Leaf.Character('b')
                     )
                   )
                 )
@@ -245,21 +242,21 @@ fn pub tests(t: mut Tests) {
   }
 
   t.test('Parse a multi character grouping zero or one') fn (t) {
-    let expected = TreeNode.SingleExpression(
-      TreeNode.SingleTerm(
-        TreeNode.ZeroOrOneFactor(
-          TreeNode.GroupedAtom(
-            TreeNode.SingleExpression(
-              TreeNode.ConcatTerm(
-                TreeNode.SingleFactor(
-                  TreeNode.CharacterAtom(
-                    TreeNode.Character('a')
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.ZeroOrOne(
+          Atom.Grouped(
+            Expression.Single(
+              Term.Concat(
+                Factor.Single(
+                  Atom.Character(
+                    Leaf.Character('a')
                   )
                 ),
-                TreeNode.SingleTerm(
-                  TreeNode.SingleFactor(
-                    TreeNode.CharacterAtom(
-                      TreeNode.Character('b')
+                Term.Single(
+                  Factor.Single(
+                    Atom.Character(
+                      Leaf.Character('b')
                     )
                   )
                 )
@@ -282,11 +279,11 @@ fn pub tests(t: mut Tests) {
 
 
   t.test("Parse an escaped *") fn (t) {
-    let expected = TreeNode.SingleExpression(
-      TreeNode.SingleTerm(
-        TreeNode.SingleFactor(
-          TreeNode.CharacterAtom(
-            TreeNode.EscapedCharacter('*')
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.Character(
+            Leaf.EscapedCharacter('*')
           )
         )
       )
@@ -304,11 +301,11 @@ fn pub tests(t: mut Tests) {
 
 
   t.test("Parse an escaped +") fn (t) {
-    let expected = TreeNode.SingleExpression(
-      TreeNode.SingleTerm(
-        TreeNode.SingleFactor(
-          TreeNode.CharacterAtom(
-            TreeNode.EscapedCharacter('+')
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.Character(
+            Leaf.EscapedCharacter('+')
           )
         )
       )
@@ -326,11 +323,11 @@ fn pub tests(t: mut Tests) {
 
 
   t.test("Parse an escaped \\") fn (t) {
-    let expected = TreeNode.SingleExpression(
-      TreeNode.SingleTerm(
-        TreeNode.SingleFactor(
-          TreeNode.CharacterAtom(
-            TreeNode.EscapedCharacter('\\')
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.Character(
+            Leaf.EscapedCharacter('\\')
           )
         )
       )

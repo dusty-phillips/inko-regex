@@ -1,6 +1,8 @@
+import std::stdio::STDOUT
 import std::test::Tests
 import std::fmt::(fmt)
 import regex::nfa::(Nfa, State, Transition)
+import debug::(debug)
 
 fn pub tests(t: mut Tests) {
   t.test("Concat two empty NFAs") fn (t) {
@@ -62,7 +64,6 @@ fn pub tests(t: mut Tests) {
 
       Nfa.new(start, end_mut)
     }
-
 
     t.equal(nfa, expected)
   }
@@ -176,6 +177,23 @@ fn pub tests(t: mut Tests) {
       let end = State.end
       let end_mut = mut end
       let old_start = State.new(Transition.Empty(end))
+      let start = State.new(Transition.Split(Transition.Reference(end_mut), Transition.Empty(old_start)))
+
+      Nfa.new(start, end_mut)
+    }
+
+    t.equal(nfa, expected)
+  }
+
+
+  t.test("zero or one on symbol NFA") fn (t) {
+    let nfa = Nfa.symbol('a')
+    nfa.zero_or_one
+
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let old_start = State.new(Transition.Symbol("a", end))
       let start = State.new(Transition.Split(Transition.Reference(end_mut), Transition.Empty(old_start)))
 
       Nfa.new(start, end_mut)

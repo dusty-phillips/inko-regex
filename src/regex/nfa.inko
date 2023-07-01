@@ -151,25 +151,35 @@ impl Equal[Transition] for Transition {
 
 impl Format for Transition {
   fn pub fmt(formatter: mut Formatter) {
+
     match self {
       case End -> {
         formatter.write("--->(End)")
       }
       case Symbol(string, state) -> {
         formatter.write("-{string}->\n")
-        state.fmt(formatter)
+        formatter.descend fn () {
+          state.fmt(formatter)
+        }
       }
       case Empty(state) -> {
         formatter.write("-ε->\n")
-        state.fmt(formatter)
+        formatter.descend fn() {
+          state.fmt(formatter)
+        }
       }
       case Reference(state) -> {
-        formatter.write("--->(REF)\n")
+        formatter.write("-REF->\{\n")
+        formatter.descend fn() {
+          state.fmt(formatter)
+        }
+        formatter.write("\n}\n")
       }
       case Split(t1, t2) -> {
+        formatter.write("-SPLIT->\{\n")
         t1.fmt(formatter)
-        formatter.write("  ")
         t2.fmt(formatter)
+        formatter.write("\n}")
       }
     }
   }
@@ -344,7 +354,9 @@ impl Equal[Nfa] for Nfa {
 impl Format for Nfa {
   fn pub fmt(formatter: mut Formatter) {
     formatter.write("Nfa \{\n")
-    self.start.fmt(formatter)
+    formatter.descend fn () {
+      self.start.fmt(formatter)
+    }
     formatter.write("\n}")
   }
 }

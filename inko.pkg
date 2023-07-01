@@ -1,0 +1,3 @@
+# This file contains your project's dependencies. For more information, refer
+# to https://docs.inko-lang.org/manual/latest/getting-started/modules/
+require https://github.com/dusty-phillips/inko-debug 0.0.2 57e8b6e1807ad131763003c1a57f927ad28ec378

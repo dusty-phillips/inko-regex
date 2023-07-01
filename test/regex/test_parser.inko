@@ -342,4 +342,40 @@ fn pub tests(t: mut Tests) {
     t.equal(nfa.match('\\'), true)
     t.equal(nfa.match('*'), false)
   }
+
+  t.test("Parse an empty character class") fn (t) {
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.Class(
+            Leaf.String('')
+          )
+        )
+      )
+    )
+
+    let parser = Parser.new('[]')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+
+    # TODO: Test that matching works once NFA is implemented
+  }
+
+  t.test("Parse a real character class") fn (t) {
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.Class(
+            Leaf.String('abc')
+          )
+        )
+      )
+    )
+
+    let parser = Parser.new('[abc]')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+
+    # TODO: Test that matching works once NFA is implemented
+  }
 }

@@ -1,6 +1,7 @@
 import std::iter::(Iter)
 import std::fmt::(Format, Formatter)
 import std::cmp::(Equal)
+import std::string::(StringBuffer)
 import regex::nfa::(Nfa)
 
 # Based on https://deniskyashif.com/2020/08/17/parsing-regex-with-recursive-descent/
@@ -8,6 +9,7 @@ import regex::nfa::(Nfa)
 # Operations:
 # Concatenation (no symbol)
 # Union |
+# Character Class []
 # Zero-or-more *
 # One-or-more +
 # Zero-or-one ?
@@ -39,6 +41,7 @@ trait pub TreeNode[T]: Format + Equal[T] {
 class pub enum Leaf {
   case Character(String) # any character excluding escaped characters
   case EscapedCharacter(String) # \*, \+, \?
+  case String(String) # multiple characters, used as part of character class
 }
 
 
@@ -47,6 +50,7 @@ impl Format for Leaf {
     match self {
       case Character(char) -> formatter.write("Character {char}\n")
       case EscapedCharacter(char) -> formatter.write("EscapedCharacter {char}\n")
+      case String(string) -> formatter.write("String {string}\n")
     }
   }
 }
@@ -57,6 +61,7 @@ impl Equal[Leaf] for Leaf {
     match (self, other) {
       case (Character(char), Character(other_char)) -> char == other_char
       case (EscapedCharacter(char), EscapedCharacter(other_char)) -> char == other_char
+      case (String(string), String(other_string)) -> string == other_string
       case _ -> false
     }
   }
@@ -67,6 +72,7 @@ impl TreeNode[Leaf] for Leaf {
     match self {
       case Character(character) -> Nfa.symbol(character)
       case EscapedCharacter(character) -> Nfa.symbol(character)
+      case String(string) -> panic("Not Implemented Yet")
     }
   }
 
@@ -75,6 +81,7 @@ impl TreeNode[Leaf] for Leaf {
 class pub enum Atom {
   case Grouped(Expression) # (<expr>)
   case Character(Leaf) # <character>
+  case Class(Leaf) # [<character_class]
 }
 
 impl Format for Atom {
@@ -88,6 +95,11 @@ impl Format for Atom {
         formatter.write("Atom (Character)\n  ")
         character.fmt(formatter)
       }
+
+      case Class(string) -> {
+        formatter.write("Atom (Class)\n  ")
+        string.fmt(formatter)
+      }
     }
   }
 }
@@ -95,8 +107,9 @@ impl Format for Atom {
 impl Equal[Atom] for Atom {
   fn pub ==(other: ref Atom) -> Bool {
     match (self, other) {
-      case(Grouped(node), Grouped(other_node)) -> node == other_node
-      case (Character(node), Character(other_node)) -> node == other_node
+      case(Grouped(expression), Grouped(other_expression)) -> expression == other_expression
+      case (Character(leaf), Character(other_leaf)) -> leaf == other_leaf
+      case (Class(leaf), Class(other_leaf)) -> leaf == other_leaf
       case _ -> false
     }
   }
@@ -106,7 +119,8 @@ impl TreeNode[Atom] for Atom {
   fn pub to_nfa() -> Nfa {
     match self {
       case Grouped(expression) -> expression.to_nfa
-      case Character(atom) -> atom.to_nfa
+      case Character(leaf) -> leaf.to_nfa
+      case Class(leaf) -> leaf.to_nfa
     }
   }
 }
@@ -414,6 +428,19 @@ class pub Parser {
           case Some(char) -> panic("Expected ), got {char}")
         }
       }
+      case Some(char) if char == '[' -> {
+        @pattern_iter.next
+        let characters = self.character_class
+        match @pattern_iter.peek {
+          case None -> panic("No closing ]")
+          case Some(']') -> {
+            @pattern_iter.next
+            Atom.Class(characters)
+          }
+          case Some(char) -> panic("Expected ], got {char}")
+        }
+
+      }
       case Some(char) -> {
         let character = self.character
         Atom.Character(character)
@@ -439,6 +466,22 @@ class pub Parser {
         @pattern_iter.next
         Leaf.Character(char)
       }
+    }
+  }
+
+  #Eat everything until a closing `]` is encountered
+  fn mut character_class() -> Leaf {
+    let buffer = StringBuffer.new
+    loop {
+      match @pattern_iter.peek {
+        case None -> panic("unclosed character class: expected ]")
+        case Some(']') -> return Leaf.String(buffer.into_string)
+        case Some(char) -> {
+          @pattern_iter.next
+          buffer.push(char)
+        }
+      }
+
     }
   }
 }

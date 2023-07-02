@@ -72,7 +72,17 @@ impl TreeNode[Leaf] for Leaf {
     match self {
       case Character(character) -> Nfa.symbol(character)
       case EscapedCharacter(character) -> Nfa.symbol(character)
-      case String(string) -> panic("Not Implemented Yet")
+      case String(characters) -> {
+        let iter = characters.characters
+        let nfa = match iter.next {
+          case None -> Nfa.empty # empty character class shouldn't happen, but it's supported
+          case Some(character) -> Nfa.symbol(character)
+        }
+        iter.each fn (character) {
+          nfa.union(Nfa.symbol(character))
+        }
+        nfa
+      }
     }
   }
 

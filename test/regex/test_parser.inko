@@ -358,10 +358,12 @@ fn pub tests(t: mut Tests) {
     let tree = parser.parse()
     t.equal(tree, expected)
 
-    # TODO: Test that matching works once NFA is implemented
+    let nfa = tree.to_nfa
+    t.equal(nfa.match('a'), true)
+    t.equal(nfa.match(''), true)
   }
 
-  t.test("Parse a real character class") fn (t) {
+  t.test("Parse a character class") fn (t) {
     let expected = Expression.Single(
       Term.Single(
         Factor.Single(
@@ -376,6 +378,12 @@ fn pub tests(t: mut Tests) {
     let tree = parser.parse()
     t.equal(tree, expected)
 
-    # TODO: Test that matching works once NFA is implemented
+    let nfa = tree.to_nfa
+
+    t.equal(nfa.match('a'), true)
+    t.equal(nfa.match('b'), true)
+    t.equal(nfa.match('c'), true)
+    t.equal(nfa.match('d'), false)
+    t.equal(nfa.match(''), false)
   }
 }

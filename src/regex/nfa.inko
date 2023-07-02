@@ -1,6 +1,7 @@
 import std::fmt::(Format, Formatter, fmt as format)
 import std::cmp::(Equal)
 import regex::matcher::(Group)
+import debug::(debug)
 
 # Based on https://deniskyashif.com/2019/02/17/implementing-a-regular-expression-engine/
 
@@ -59,6 +60,8 @@ class pub State {
         case Reference(state) -> state.clear_cycle_detection_marks
         case Symbol(string, state) -> state.clear_cycle_detection_marks
         case Empty(state) -> state.clear_cycle_detection_marks
+        case OpenGroup({@state=state}) -> state.clear_cycle_detection_marks
+        case CloseGroup({@state=state}) -> state.clear_cycle_detection_marks
         case Split(Empty(state1), Empty(state2)) -> {
           state1.clear_cycle_detection_marks
           state2.clear_cycle_detection_marks
@@ -92,6 +95,8 @@ class pub State {
       case Symbol(symbol, state) -> next_states_collector.push(self)
       case Reference(state) -> state.skip_to_symbol_transitions(next_states_collector)
       case Empty(state) -> state.skip_to_symbol_transitions(next_states_collector)
+      case OpenGroup({@state=state, @id=id}) -> state.skip_to_symbol_transitions(next_states_collector)
+      case CloseGroup({@state=state, @id=id}) -> state.skip_to_symbol_transitions(next_states_collector)
       case Split(Empty(state1), Empty(state2)) -> {
         state1.skip_to_symbol_transitions(next_states_collector)
         state2.skip_to_symbol_transitions(next_states_collector)
@@ -122,6 +127,51 @@ impl Format for State {
   }
 }
 
+# Open and close groups need to track their group ID, which may change as unions and
+# concatenations occur.
+#
+# Public for unit testing only.
+class pub GroupTransition {
+  # The owned next state that is the first state "inside" the group
+  let @state: State
+  # An identifier for the group, unique within an NFA. Current implementation
+  # has this as the index of the ref in the groups array, but that may change.
+  let @id: Int
+
+
+  fn pub static new(state: State, id: Int) -> GroupTransition {
+    GroupTransition {
+      @state = state,
+      @id = id
+    }
+  }
+
+  fn pub move open() -> Transition {
+    Transition.OpenGroup(self)
+  }
+
+
+  fn pub move close() -> Transition {
+    Transition.CloseGroup(self)
+  }
+}
+
+impl Equal[GroupTransition] for GroupTransition {
+  fn pub ==(other: ref GroupTransition) -> Bool {
+    match (self, other) {
+      case ({@state=state, @id=id}, {@state=other_state, @id=other_id}) -> {
+        state == other_state and id == other_id
+      }
+    }
+  }
+}
+
+impl Format for GroupTransition {
+  fn pub fmt(formatter: mut Formatter) {
+    @id.fmt(formatter)
+  }
+}
+
 
 # ADT for the various kinds of transitions a state can model.
 class pub enum Transition {
@@ -131,6 +181,10 @@ class pub enum Transition {
   case Symbol(String, State)
   # Transition to the next (owned) state without advancing a character (epsilon transition)
   case Empty(State)
+  # Transition to the next (owned) state without advancing a character, but record that a group opened
+  case OpenGroup(GroupTransition)
+  # Transition to the t next (owned) state without advancing a character, but record that a group closed
+  case CloseGroup(GroupTransition)
   # Transition to the next (reference) state without advancing a character (epsilon transition)
   case Reference(mut State)
   # Store up to two transitions. In practice, these will both be epsilon transitions.
@@ -143,6 +197,14 @@ impl Equal[Transition] for Transition {
       case (End, End) -> true
       case (Symbol(char, state), Symbol(other_char, other_state)) -> char == other_char and state == other_state
       case (Empty(state), Empty(other_state)) -> state == other_state
+      case (
+        OpenGroup({@state = state, @id=id}),
+        OpenGroup({ @state = other_state, @id=other_id })
+      )-> state == other_state and id == other_id
+      case (
+        CloseGroup({@state = state, @id=id}),
+        CloseGroup({ @state = other_state, @id=other_id })
+      )-> state == other_state and id == other_id
       case (Reference(state), Reference(other_state)) -> true # TODO: This doesn't verify *where* the ref points
       case(Split(t1, t2), Split(other_t1, other_t2)) -> t1 == other_t1 and t2 == other_t2
       case (_, _) -> false
@@ -169,6 +231,14 @@ impl Format for Transition {
           state.fmt(formatter)
         }
       }
+      case OpenGroup({@state=state, @id=id}) -> {
+        formatter.write("-({id.to_string}->\n")
+        state.fmt(formatter)
+      }
+      case CloseGroup({@state=state, @id=id}) -> {
+        formatter.write("-{id.to_string})->\n")
+        state.fmt(formatter)
+      }
       case Reference(state) -> {
         formatter.write("-REF->\{\n")
         formatter.descend fn() {
@@ -193,6 +263,7 @@ impl Format for Transition {
 # induction rules of (basic) regular expressions.
 class pub Nfa {
   let pub @end: mut State
+  let pub @groups: Array[(mut GroupTransition, mut GroupTransition)]
   let @start: State
 
   # Construct a new NFA from component states.
@@ -202,7 +273,8 @@ class pub Nfa {
   fn pub static new(start: State, end: mut State) -> Nfa {
     Nfa {
         @start=start,
-        @end=end
+        @end=end,
+        @groups=[]
     }
   }
 
@@ -213,10 +285,7 @@ class pub Nfa {
     let end_ref = mut end
     let start = State.new(Transition.Empty(end))
 
-    Nfa {
-      @end = end_ref,
-      @start = start
-    }
+    Nfa.new(start, end_ref)
   }
 
   # Construct a new symbol NFA, comprised of a start state with a symbol transition
@@ -228,16 +297,19 @@ class pub Nfa {
     let end_ref = mut end
     let start = State.new(Transition.Symbol(char, end))
 
-    Nfa {
-      @end = end_ref,
-      @start = start
-    }
+    Nfa.new(start, end_ref)
   }
 
   # Concatenate the provided NFA to ourselves. (AND expression)
   fn pub mut concat(other: Nfa) {
     match other {
-      case {@end=other_end, @start=other_start} -> {
+      case {@end=other_end, @start=other_start, @groups=other_groups} -> {
+        let group_increment = @groups.length
+        other_groups.into_iter.each fn (groupref) {
+          groupref.0.id += group_increment
+          groupref.1.id += group_increment
+          @groups.push(groupref)
+        }
         @end.replace(Transition.Empty(other_start))
         @end = other_end
       }
@@ -247,7 +319,13 @@ class pub Nfa {
   # Union the provided NFA with ourselves. (OR expression)
   fn pub mut union(other: Nfa) {
     match other {
-      case {@end=other_end, @start=other_start} -> {
+      case {@end=other_end, @start=other_start, @groups=other_groups} -> {
+        let group_increment = @groups.length
+        other_groups.into_iter.each fn (groupref) {
+          groupref.0.id += group_increment
+          groupref.1.id += group_increment
+          @groups.push(groupref)
+        }
         # Temporarily place new_end in start
         let old_start = State.new(@start.replace(Transition.End))
         let new_end = State.new(@start.replace(Transition.Split(Transition.Empty(old_start), Transition.Empty(other_start))))
@@ -293,6 +371,22 @@ class pub Nfa {
   fn pub mut zero_or_one() {
     let old_start = State.new(@start.replace(Transition.End))
     @start.replace(Transition.Split(Transition.Reference(@end), Transition.Empty(old_start)))
+  }
+
+  # Turn the current NFA into an NFA that matches the identical expression, but records
+  # that a group opens and closes before and after it.
+  fn pub mut group() {
+    let old_start = State.new(@start.replace(Transition.End))
+    let open_transition = GroupTransition.new(old_start, @groups.length)
+    let open_transition_mut = mut open_transition
+    let new_end = State.new(@start.replace(open_transition.open))
+    let new_end_ref = mut new_end
+    let close_transition = GroupTransition.new(new_end, @groups.length)
+    let close_transition_mut = mut close_transition
+    @end.replace(close_transition.close)
+    @end = new_end_ref
+    @groups.push((open_transition_mut, close_transition_mut))
+
   }
 
   # Return true if the provided word matches the regular expression encoded in this NFA.
@@ -343,15 +437,17 @@ class pub Nfa {
     }
 
     return longest_match
-
   }
 }
 
 impl Equal[Nfa] for Nfa {
   fn pub ==(other: ref Nfa) -> Bool {
     match (self, other) {
-      case ({@end=end, @start=start}, {@end=other_end, @start=other_start}) -> {
-        end == other_end and start == other_start
+      case (
+        {@end=end, @start=start, @groups=groups},
+        {@end=other_end, @start=other_start, @groups=other_groups}
+      ) -> {
+        end == other_end and start == other_start and groups == other_groups
       }
     }
   }

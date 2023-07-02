@@ -1,8 +1,7 @@
 import std::stdio::STDOUT
 import std::test::Tests
 import std::fmt::(fmt)
-import regex::nfa::(Nfa, State, Transition)
-import debug::(debug)
+import regex::nfa::(Nfa, State, Transition, GroupTransition)
 
 fn pub tests(t: mut Tests) {
   t.test("Concat two empty NFAs") fn (t) {
@@ -200,5 +199,125 @@ fn pub tests(t: mut Tests) {
     }
 
     t.equal(nfa, expected)
+  }
+
+  t.test("empty group NFA") fn (t) {
+    let nfa = Nfa.empty
+    nfa.group
+
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let close_transition = GroupTransition.new(end, 0)
+      let close_transition_mut = mut close_transition
+      let old_end = State.new(Transition.CloseGroup(close_transition))
+      let old_start = State.new(Transition.Empty(old_end))
+      let open_transition = GroupTransition.new(old_start, 0)
+      let open_transition_mut = mut open_transition
+      let start = State.new(Transition.OpenGroup(open_transition))
+      let expected = Nfa.new(start, end_mut)
+      expected.groups = [(open_transition_mut, close_transition_mut)]
+      expected
+    }
+
+    t.equal(nfa, expected)
+  }
+
+
+  t.test("symbol group NFA") fn (t) {
+    let nfa = Nfa.symbol('a')
+    nfa.group
+
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let close_transition = GroupTransition.new(end, 0)
+      let close_transition_mut = mut close_transition
+      let old_end = State.new(Transition.CloseGroup(close_transition))
+      let old_start = State.new(Transition.Symbol("a", old_end))
+      let open_transition = GroupTransition.new(old_start, 0)
+      let open_transition_mut = mut open_transition
+      let start = State.new(Transition.OpenGroup(open_transition))
+      let expected = Nfa.new(start, end_mut)
+      expected.groups = [(open_transition_mut, close_transition_mut)]
+      expected
+    }
+
+    t.equal(nfa, expected)
+  }
+
+
+  t.test("union of two group NFAs") fn (t) {
+    let nfa1 = Nfa.symbol('a')
+    nfa1.group
+    let nfa2 = Nfa.symbol('b')
+    nfa2.group
+    nfa1.union(nfa2)
+
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let a_end = State.new(Transition.Reference(end_mut))
+      let a_close = GroupTransition.new(a_end, 0)
+      let a_close_mut = mut a_close
+      let a = State.new(Transition.Symbol("a", State.new(a_close.close)))
+      let a_open = GroupTransition.new(a, 0)
+      let a_open_mut = mut a_open
+
+      let b_end = State.new(Transition.Empty(end))
+      let b_close = GroupTransition.new(b_end, 1)
+      let b_close_mut = mut b_close
+      let b = State.new(Transition.Symbol("b", State.new(b_close.close)))
+      let b_open = GroupTransition.new(b, 1)
+      let b_open_mut = mut b_open
+
+
+      let start = State.new(Transition.Split(
+        Transition.Empty(
+          State.new(a_open.open)
+        ),
+        Transition.Empty(
+          State.new(b_open.open)
+        )
+      ))
+      let expected = Nfa.new(start, end_mut)
+      expected.groups = [(a_open_mut, a_close_mut), (b_open_mut, b_close_mut)]
+      expected
+    }
+
+
+    t.equal(nfa1, expected)
+  }
+
+
+  t.test("Concat two group NFAs") fn (t) {
+    let nfa1 = Nfa.symbol('a')
+    nfa1.group
+    let nfa2 = Nfa.symbol('b')
+    nfa2.group
+    nfa1.concat(nfa2)
+
+
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let b_close = GroupTransition.new(end, 1)
+      let b_close_mut = mut b_close
+      let b = State.new(Transition.Symbol("b", State.new(b_close.close)))
+      let b_open = GroupTransition.new(b, 1)
+      let b_open_mut = mut b_open
+      let a_end = State.new(Transition.Empty(State.new(b_open.open)))
+      let a_close = GroupTransition.new(a_end, 0)
+      let a_close_mut = mut a_close
+      let a = State.new(Transition.Symbol("a", State.new(a_close.close)))
+      let a_open = GroupTransition.new(a, 0)
+      let a_open_mut = mut a_open
+      let start = State.new(a_open.open)
+      let expected = Nfa.new(start, end_mut)
+      expected.groups = [(a_open_mut, a_close_mut), (b_open_mut, b_close_mut)]
+      expected
+    }
+
+    t.equal(nfa1, expected)
   }
 }

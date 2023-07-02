@@ -128,13 +128,16 @@ impl Equal[Atom] for Atom {
 impl TreeNode[Atom] for Atom {
   fn pub to_nfa() -> Nfa {
     match self {
-      case Grouped(expression) -> expression.to_nfa
+      case Grouped(expression) -> {
+          let nfa = expression.to_nfa
+          nfa.group
+          nfa
+      }
       case Character(leaf) -> leaf.to_nfa
       case Class(leaf) -> leaf.to_nfa
     }
   }
 }
-
 
 class pub enum Factor {
   case Single(Atom) # <atom>

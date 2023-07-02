@@ -1,5 +1,6 @@
 import std::fmt::(Format, Formatter, fmt as format)
 import std::cmp::(Equal)
+import regex::matcher::(Match)
 
 # Based on https://deniskyashif.com/2019/02/17/implementing-a-regular-expression-engine/
 
@@ -299,10 +300,12 @@ class pub Nfa {
   # Currently, match is defined as "an end state is reached starting from the currennt state".
   # Specifically, it is possible for a match to return true even if not all characetrs in the
   # provided word have been matched.
-  fn pub mut match(word: String) -> Bool {
+  fn pub mut matches(target: String) -> Option[Match] {
     let mut current_states = [mut @start]
-    let characters = word.characters
+    let characters = target.characters
     let mut character_option = characters.next
+    let mut count = 0
+    let mut longest_match = Option.None
 
     while (character_option).some? {
       let character = character_option.unwrap
@@ -311,20 +314,20 @@ class pub Nfa {
         state.skip_to_symbol_transitions(next_states)
         state.clear_cycle_detection_marks
       }
-
       # next_states now contains only Symbol or End transitions
       if next_states.iter.any?(fn (state) {state.end?}) {
-        return true
+        longest_match = Option.Some(Match.new(target, 0, count))
       }
 
-      # next_states now contains only Symbol transitions
       current_states = (next_states.iter_mut.select_map fn (state) {
         match state.transition {
+          case End -> Option.None
           case Symbol(char, next_state) if char == character -> Option.Some(next_state)
           case Symbol(_, _) -> Option.None
           case _ -> panic("Unexpected transition in next_states")
         }
       }).to_array
+      count += 1
       character_option = characters.next
       # current_states now contains only states that came after symbol transitions
     }
@@ -335,8 +338,11 @@ class pub Nfa {
       state.skip_to_symbol_transitions(final_states)
       state.clear_cycle_detection_marks
     }
+    if final_states.iter.any?(fn (state) {state.end?}) {
+      longest_match = Option.Some(Match.new(target, 0, count))
+    }
 
-    return final_states.iter.any?(fn (state) {state.end?})
+    return longest_match
 
   }
 }

@@ -1,0 +1,38 @@
+import std::cmp::(Equal)
+import std::fmt::(Format, Formatter)
+
+class pub Match {
+  let @source_string: String
+  let @from_index: Int
+  let @to_index: Int
+
+  fn pub static new (source_string: String, from_index: Int, to_index: Int) -> Match {
+    Match {
+      @source_string = source_string,
+      @from_index = from_index,
+      @to_index = to_index
+    }
+  }
+
+  fn string() {
+    @source_string.slice(@from_index, @to_index)
+  }
+}
+
+impl Equal[Match] for Match {
+  fn pub ==(other: ref Match) -> Bool {
+    return @source_string == other.source_string and @from_index == other.from_index and @to_index == other.to_index
+  }
+}
+
+impl Format for Match {
+  fn pub fmt(formatter: mut Formatter) {
+    formatter.write("match \{")
+    formatter.write("@source_string=")
+    @source_string.fmt(formatter)
+    formatter.write(", @from_index=")
+    @from_index.fmt(formatter)
+    formatter.write(", @to_index=")
+    @to_index.fmt(formatter)
+  }
+}

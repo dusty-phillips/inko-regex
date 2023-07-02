@@ -3,7 +3,7 @@ import std::fmt::(fmt)
 import std::test::Tests
 import regex::parser::(Expression, Term, Factor, Atom, Leaf, Parser)
 import regex::nfa::(Nfa, State, Transition)
-import regex::matcher::(Match)
+import regex::matcher::(Group)
 import debug::(debug)
 
 fn pub tests(t: mut Tests) {
@@ -24,7 +24,7 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('a'), Option.Some(Match.new("a", 0, 1)))
+    t.equal(nfa.matches('a'), Option.Some(Group.new("a", 0, 1)))
     # t.equal(nfa.matches('b'), Option.None)
   }
 
@@ -52,7 +52,7 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('ab'), Option.Some(Match.new("ab", 0, 2)))
+    t.equal(nfa.matches('ab'), Option.Some(Group.new("ab", 0, 2)))
     t.equal(nfa.matches('zz'), Option.None)
 
 
@@ -99,9 +99,9 @@ fn pub tests(t: mut Tests) {
     let nfa = tree.to_nfa
     t.equal(nfa, expected)
 
-    t.equal(nfa.matches('a'), Option.Some(Match.new('a', 0, 1)))
-    t.equal(nfa.matches('a'), Option.Some(Match.new('a', 0, 1)))
-    t.equal(nfa.matches('b'), Option.Some(Match.new('b', 0, 1)))
+    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
+    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
+    t.equal(nfa.matches('b'), Option.Some(Group.new('b', 0, 1)))
     t.equal(nfa.matches('c'), Option.None)
   }
 
@@ -122,11 +122,11 @@ fn pub tests(t: mut Tests) {
 
 
     let nfa = tree.to_nfa
-    t.equal(nfa.matches(''), Option.Some(Match.new('', 0, 0)))
-    t.equal(nfa.matches('a'), Option.Some(Match.new('a', 0, 1)))
-    t.equal(nfa.matches('aa'), Option.Some(Match.new('aa', 0, 2)))
-    t.equal(nfa.matches('aaaaaaaaa'), Option.Some(Match.new('aaaaaaaaa', 0, 9)))
-    t.equal(nfa.matches('b'), Option.Some(Match.new('b', 0, 0)))
+    t.equal(nfa.matches(''), Option.Some(Group.new('', 0, 0)))
+    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
+    t.equal(nfa.matches('aa'), Option.Some(Group.new('aa', 0, 2)))
+    t.equal(nfa.matches('aaaaaaaaa'), Option.Some(Group.new('aaaaaaaaa', 0, 9)))
+    t.equal(nfa.matches('b'), Option.Some(Group.new('b', 0, 0)))
   }
 
 
@@ -147,10 +147,10 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('a'), Option.Some(Match.new('a', 0, 1)))
-    t.equal(nfa.matches('aa'), Option.Some(Match.new('aa', 0, 1)))
-    t.equal(nfa.matches(''), Option.Some(Match.new('', 0, 0)))
-    t.equal(nfa.matches('b'), Option.Some(Match.new('b', 0, 0)))
+    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
+    t.equal(nfa.matches('aa'), Option.Some(Group.new('aa', 0, 1)))
+    t.equal(nfa.matches(''), Option.Some(Group.new('', 0, 0)))
+    t.equal(nfa.matches('b'), Option.Some(Group.new('b', 0, 0)))
   }
 
   t.test("Parse a single character one or more") fn (t) {
@@ -171,10 +171,10 @@ fn pub tests(t: mut Tests) {
     let nfa = tree.to_nfa
 
     t.equal(nfa.matches(''), Option.None)
-    t.equal(nfa.matches('a'), Option.Some(Match.new('a', 0, 1)))
-    t.equal(nfa.matches('a'), Option.Some(Match.new('a', 0, 1)))
-    t.equal(nfa.matches('aa'), Option.Some(Match.new('aa', 0, 2)))
-    t.equal(nfa.matches('aaaa'), Option.Some(Match.new('aaaa', 0, 4)))
+    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
+    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
+    t.equal(nfa.matches('aa'), Option.Some(Group.new('aa', 0, 2)))
+    t.equal(nfa.matches('aaaa'), Option.Some(Group.new('aaaa', 0, 4)))
     t.equal(nfa.matches('b'), Option.None)
   }
 
@@ -203,7 +203,7 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('a'), Option.Some(Match.new('a', 0, 1)))
+    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
     t.equal(nfa.matches('b'), Option.None)
   }
 
@@ -239,7 +239,7 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('ab'), Option.Some(Match.new('ab', 0, 2)))
+    t.equal(nfa.matches('ab'), Option.Some(Group.new('ab', 0, 2)))
     t.equal(nfa.matches('a'), Option.None)
     t.equal(nfa.matches('bc'), Option.None)
   }
@@ -276,9 +276,9 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('ab'), Option.Some(Match.new('ab', 0, 2)))
-    t.equal(nfa.matches('a'), Option.Some(Match.new('a', 0, 0)))
-    t.equal(nfa.matches(''), Option.Some(Match.new('', 0, 0)))
+    t.equal(nfa.matches('ab'), Option.Some(Group.new('ab', 0, 2)))
+    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 0)))
+    t.equal(nfa.matches(''), Option.Some(Group.new('', 0, 0)))
   }
 
 
@@ -299,7 +299,7 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('*'), Option.Some(Match.new('*', 0, 1)))
+    t.equal(nfa.matches('*'), Option.Some(Group.new('*', 0, 1)))
     t.equal(nfa.matches('\\'), Option.None)
   }
 
@@ -321,7 +321,7 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('+'), Option.Some(Match.new('+', 0, 1)))
+    t.equal(nfa.matches('+'), Option.Some(Group.new('+', 0, 1)))
     t.equal(nfa.matches('\\'), Option.None)
   }
 
@@ -343,7 +343,7 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('\\'), Option.Some(Match.new('\\', 0, 1)))
+    t.equal(nfa.matches('\\'), Option.Some(Group.new('\\', 0, 1)))
     t.equal(nfa.matches('*'), Option.None)
   }
 
@@ -363,8 +363,8 @@ fn pub tests(t: mut Tests) {
     t.equal(tree, expected)
 
     let nfa = tree.to_nfa
-    t.equal(nfa.matches('a'), Option.Some(Match.new('a', 0, 0)))
-    t.equal(nfa.matches(''), Option.Some(Match.new('', 0, 0)))
+    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 0)))
+    t.equal(nfa.matches(''), Option.Some(Group.new('', 0, 0)))
   }
 
   t.test("Parse a character class") fn (t) {
@@ -384,9 +384,9 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('a'), Option.Some(Match.new('a', 0, 1)))
-    t.equal(nfa.matches('b'), Option.Some(Match.new('b', 0, 1)))
-    t.equal(nfa.matches('c'), Option.Some(Match.new('c', 0, 1)))
+    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
+    t.equal(nfa.matches('b'), Option.Some(Group.new('b', 0, 1)))
+    t.equal(nfa.matches('c'), Option.Some(Group.new('c', 0, 1)))
     t.equal(nfa.matches('d'), Option.None)
     t.equal(nfa.matches(''), Option.None)
   }

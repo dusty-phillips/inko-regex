@@ -1,6 +1,6 @@
 import std::fmt::(Format, Formatter, fmt as format)
 import std::cmp::(Equal)
-import regex::matcher::(Match)
+import regex::matcher::(Group)
 
 # Based on https://deniskyashif.com/2019/02/17/implementing-a-regular-expression-engine/
 
@@ -300,7 +300,7 @@ class pub Nfa {
   # Currently, match is defined as "an end state is reached starting from the currennt state".
   # Specifically, it is possible for a match to return true even if not all characetrs in the
   # provided word have been matched.
-  fn pub mut matches(target: String) -> Option[Match] {
+  fn pub mut matches(target: String) -> Option[Group] {
     let mut current_states = [mut @start]
     let characters = target.characters
     let mut character_option = characters.next
@@ -316,7 +316,7 @@ class pub Nfa {
       }
       # next_states now contains only Symbol or End transitions
       if next_states.iter.any?(fn (state) {state.end?}) {
-        longest_match = Option.Some(Match.new(target, 0, count))
+        longest_match = Option.Some(Group.new(target, 0, count))
       }
 
       current_states = (next_states.iter_mut.select_map fn (state) {
@@ -339,7 +339,7 @@ class pub Nfa {
       state.clear_cycle_detection_marks
     }
     if final_states.iter.any?(fn (state) {state.end?}) {
-      longest_match = Option.Some(Match.new(target, 0, count))
+      longest_match = Option.Some(Group.new(target, 0, count))
     }
 
     return longest_match

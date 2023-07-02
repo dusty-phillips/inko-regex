@@ -1,13 +1,13 @@
 import std::cmp::(Equal)
 import std::fmt::(Format, Formatter)
 
-class pub Match {
+class pub Group {
   let @source_string: String
   let @from_index: Int
   let @to_index: Int
 
-  fn pub static new (source_string: String, from_index: Int, to_index: Int) -> Match {
-    Match {
+  fn pub static new (source_string: String, from_index: Int, to_index: Int) -> Group {
+    Group {
       @source_string = source_string,
       @from_index = from_index,
       @to_index = to_index
@@ -19,13 +19,13 @@ class pub Match {
   }
 }
 
-impl Equal[Match] for Match {
-  fn pub ==(other: ref Match) -> Bool {
+impl Equal[Group] for Group {
+  fn pub ==(other: ref Group) -> Bool {
     return @source_string == other.source_string and @from_index == other.from_index and @to_index == other.to_index
   }
 }
 
-impl Format for Match {
+impl Format for Group {
   fn pub fmt(formatter: mut Formatter) {
     formatter.write("match \{")
     formatter.write("@source_string=")

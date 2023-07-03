@@ -3,7 +3,7 @@ import std::fmt::(fmt)
 import std::test::Tests
 import regex::parser::(Expression, Term, Factor, Atom, Leaf, Parser)
 import regex::nfa::(Nfa, State, Transition)
-import regex::matcher::(Group)
+import regex::matcher::(Group, Match)
 import debug::(debug)
 
 fn pub tests(t: mut Tests) {
@@ -24,8 +24,11 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('a'), Option.Some(Group.new("a", 0, 1)))
-    # t.equal(nfa.matches('b'), Option.None)
+    t.equal(
+      nfa.matches('a'),
+      Option.Some(Match.new(Group.new("a", 0, 1), []))
+    )
+    t.equal(nfa.matches('b'), Option.None)
   }
 
   t.test("Parse two character concatenation") fn (t) {
@@ -52,7 +55,10 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('ab'), Option.Some(Group.new("ab", 0, 2)))
+    t.equal(
+      nfa.matches('ab'),
+      Option.Some(Match.new(Group.new("ab", 0, 2), []))
+    )
     t.equal(nfa.matches('zz'), Option.None)
 
 
@@ -99,22 +105,31 @@ fn pub tests(t: mut Tests) {
     let nfa = tree.to_nfa
     t.equal(nfa, expected)
 
-    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
-    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
-    t.equal(nfa.matches('b'), Option.Some(Group.new('b', 0, 1)))
+    t.equal(
+      nfa.matches('a'),
+      Option.Some(Match.new(Group.new('a', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches('a'),
+      Option.Some(Match.new(Group.new('a', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches('b'),
+      Option.Some(Match.new(Group.new('b', 0, 1), []))
+    )
     t.equal(nfa.matches('c'), Option.None)
   }
 
   t.test("Parse a single character zero or more") fn (t) {
-   let expected = Expression.Single(
-    Term.Single(
-      Factor.ZeroOrMore(
-        Atom.Character(
-          Leaf.Character('a')
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.ZeroOrMore(
+          Atom.Character(
+            Leaf.Character('a')
+          )
         )
       )
     )
-   )
 
     let parser = Parser.new('a*')
     let tree = parser.parse()
@@ -122,24 +137,39 @@ fn pub tests(t: mut Tests) {
 
 
     let nfa = tree.to_nfa
-    t.equal(nfa.matches(''), Option.Some(Group.new('', 0, 0)))
-    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
-    t.equal(nfa.matches('aa'), Option.Some(Group.new('aa', 0, 2)))
-    t.equal(nfa.matches('aaaaaaaaa'), Option.Some(Group.new('aaaaaaaaa', 0, 9)))
-    t.equal(nfa.matches('b'), Option.Some(Group.new('b', 0, 0)))
+    t.equal(
+      nfa.matches(''),
+      Option.Some(Match.new(Group.new('', 0, 0), []))
+    )
+    t.equal(
+      nfa.matches('a'),
+      Option.Some(Match.new(Group.new('a', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches('aa'),
+      Option.Some(Match.new(Group.new('aa', 0, 2), []))
+    )
+    t.equal(
+      nfa.matches('aaaaaaaaa'),
+      Option.Some(Match.new(Group.new('aaaaaaaaa', 0, 9), []))
+    )
+    t.equal(
+      nfa.matches('b'),
+      Option.Some(Match.new(Group.new('b', 0, 0), []))
+    )
   }
 
 
   t.test("Parse a single character zero or one") fn (t) {
-   let expected = Expression.Single(
-    Term.Single(
-      Factor.ZeroOrOne(
-        Atom.Character(
-          Leaf.Character('a')
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.ZeroOrOne(
+          Atom.Character(
+            Leaf.Character('a')
+          )
         )
       )
     )
-   )
 
     let parser = Parser.new('a?')
     let tree = parser.parse()
@@ -147,22 +177,34 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
-    t.equal(nfa.matches('aa'), Option.Some(Group.new('aa', 0, 1)))
-    t.equal(nfa.matches(''), Option.Some(Group.new('', 0, 0)))
-    t.equal(nfa.matches('b'), Option.Some(Group.new('b', 0, 0)))
+    t.equal(
+      nfa.matches('a'),
+      Option.Some(Match.new(Group.new('a', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches('aa'),
+      Option.Some(Match.new(Group.new('aa', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches(''),
+      Option.Some(Match.new(Group.new('', 0, 0), []))
+    )
+    t.equal(
+      nfa.matches('b'),
+      Option.Some(Match.new(Group.new('b', 0, 0), []))
+    )
   }
 
   t.test("Parse a single character one or more") fn (t) {
-   let expected = Expression.Single(
-    Term.Single(
-      Factor.OneOrMore(
-        Atom.Character(
-          Leaf.Character('a')
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.OneOrMore(
+          Atom.Character(
+            Leaf.Character('a')
+          )
         )
       )
     )
-   )
 
     let parser = Parser.new('a+')
     let tree = parser.parse()
@@ -171,10 +213,22 @@ fn pub tests(t: mut Tests) {
     let nfa = tree.to_nfa
 
     t.equal(nfa.matches(''), Option.None)
-    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
-    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
-    t.equal(nfa.matches('aa'), Option.Some(Group.new('aa', 0, 2)))
-    t.equal(nfa.matches('aaaa'), Option.Some(Group.new('aaaa', 0, 4)))
+    t.equal(
+      nfa.matches('a'),
+      Option.Some(Match.new(Group.new('a', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches('a'),
+      Option.Some(Match.new(Group.new('a', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches('aa'),
+      Option.Some(Match.new(Group.new('aa', 0, 2), []))
+    )
+    t.equal(
+      nfa.matches('aaaa'),
+      Option.Some(Match.new(Group.new('aaaa', 0, 4), []))
+    )
     t.equal(nfa.matches('b'), Option.None)
   }
 
@@ -203,7 +257,10 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
+    t.equal(
+      nfa.matches('a'),
+      Option.Some(Match.new(Group.new('a', 0, 1), [Option.Some(Group.new('a', 0, 1))]))
+    )
     t.equal(nfa.matches('b'), Option.None)
   }
 
@@ -239,7 +296,10 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('ab'), Option.Some(Group.new('ab', 0, 2)))
+    t.equal(
+      nfa.matches('ab'),
+      Option.Some(Match.new(Group.new('ab', 0, 2), [Option.Some(Group.new('ab', 0, 2))]))
+    )
     t.equal(nfa.matches('a'), Option.None)
     t.equal(nfa.matches('bc'), Option.None)
   }
@@ -276,9 +336,79 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('ab'), Option.Some(Group.new('ab', 0, 2)))
-    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 0)))
-    t.equal(nfa.matches(''), Option.Some(Group.new('', 0, 0)))
+    t.equal(
+      nfa.matches('ab'),
+      Option.Some(Match.new(Group.new('ab', 0, 2), [Option.Some(Group.new('ab', 0, 2))]))
+    )
+    t.equal(
+      nfa.matches('a'),
+      Option.Some(Match.new(Group.new('a', 0, 0), [Option.None]))
+    )
+    t.equal(
+      nfa.matches(''),
+      Option.Some(Match.new(Group.new('', 0, 0), [Option.None]))
+    )
+  }
+
+  t.test("Parse multiple character groupings") fn (t) {
+    let expected = Expression.Single(
+      Term.Concat(
+        Factor.Single(
+          Atom.Grouped(
+            Expression.Single(
+              Term.Concat(
+                Factor.Single(
+                  Atom.Character(
+                    Leaf.Character('a')
+                  )
+                ),
+                Term.Single(
+                  Factor.Single(
+                    Atom.Character(
+                      Leaf.Character('b')
+                    )
+                  )
+                )
+              )
+            )
+          )
+        ),
+        Term.Single(
+          Factor.Single(
+            Atom.Grouped(
+              Expression.Single(
+                Term.Concat(
+                  Factor.Single(
+                    Atom.Character(Leaf.Character('c'))
+                  ),
+                  Term.Single(
+                    Factor.Single(
+                      Atom.Character(Leaf.Character('d'))
+                    )
+                  )
+                )
+              )
+            )
+          )
+        )
+      )
+    )
+
+    let parser = Parser.new('(ab)(cd)')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+
+    let nfa = tree.to_nfa
+
+    t.equal(
+      nfa.matches('abcd'),
+      Option.Some(
+        Match.new(
+          Group.new('abcd', 0, 4),
+          [Option.Some(Group.new('abcd', 0, 2)), Option.Some(Group.new('abcd', 2, 4))]
+        )
+      )
+    )
   }
 
 
@@ -299,7 +429,10 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('*'), Option.Some(Group.new('*', 0, 1)))
+    t.equal(
+      nfa.matches('*'),
+      Option.Some(Match.new(Group.new('*', 0, 1), []))
+    )
     t.equal(nfa.matches('\\'), Option.None)
   }
 
@@ -321,7 +454,10 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('+'), Option.Some(Group.new('+', 0, 1)))
+    t.equal(
+      nfa.matches('+'),
+      Option.Some(Match.new(Group.new('+', 0, 1), []))
+    )
     t.equal(nfa.matches('\\'), Option.None)
   }
 
@@ -343,7 +479,10 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('\\'), Option.Some(Group.new('\\', 0, 1)))
+    t.equal(
+      nfa.matches('\\'),
+      Option.Some(Match.new(Group.new('\\', 0, 1), []))
+    )
     t.equal(nfa.matches('*'), Option.None)
   }
 
@@ -363,8 +502,14 @@ fn pub tests(t: mut Tests) {
     t.equal(tree, expected)
 
     let nfa = tree.to_nfa
-    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 0)))
-    t.equal(nfa.matches(''), Option.Some(Group.new('', 0, 0)))
+    t.equal(
+      nfa.matches('a'),
+      Option.Some(Match.new(Group.new('a', 0, 0), []))
+    )
+    t.equal(
+      nfa.matches(''),
+      Option.Some(Match.new(Group.new('', 0, 0), []))
+    )
   }
 
   t.test("Parse a character class") fn (t) {
@@ -384,9 +529,18 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
 
-    t.equal(nfa.matches('a'), Option.Some(Group.new('a', 0, 1)))
-    t.equal(nfa.matches('b'), Option.Some(Group.new('b', 0, 1)))
-    t.equal(nfa.matches('c'), Option.Some(Group.new('c', 0, 1)))
+    t.equal(
+      nfa.matches('a'),
+      Option.Some(Match.new(Group.new('a', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches('b'),
+      Option.Some(Match.new(Group.new('b', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches('c'),
+      Option.Some(Match.new(Group.new('c', 0, 1), []))
+    )
     t.equal(nfa.matches('d'), Option.None)
     t.equal(nfa.matches(''), Option.None)
   }

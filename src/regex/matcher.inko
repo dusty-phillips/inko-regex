@@ -28,7 +28,7 @@ impl Equal[Group] for Group {
 
 impl Format for Group {
   fn pub fmt(formatter: mut Formatter) {
-    formatter.write("match \{")
+    formatter.write("Group \{")
     formatter.write("@source_string=")
     @source_string.fmt(formatter)
     formatter.write(", @from_index=")
@@ -38,3 +38,75 @@ impl Format for Group {
   }
 }
 
+class pub GroupBuilder {
+  let @id: Int
+  let @source_string: String
+  let @from_index: Option[Int]
+  let @to_index: Option[Int]
+
+  fn pub static new(id: Int, source_string: String) -> GroupBuilder {
+    GroupBuilder {
+      @id=id,
+      @source_string=source_string,
+      @from_index=Option.None,
+      @to_index=Option.None
+    }
+  }
+
+  fn pub move into_group() -> Option[Group] {
+    match (@from_index, @to_index) {
+      case (None, None) -> Option.None,
+      case (None, Some(_)) -> panic("Unopened group {@id} was closed.")
+      case (Some(_), None) -> Option.None,
+      case (Some(from), Some(to)) -> Option.Some(Group.new(@source_string, from, to))
+    }
+  }
+
+  fn pub mut open(from_index: Int) {
+    if @from_index.none? {
+      @from_index = Option.Some(from_index)
+    }
+  }
+
+
+  fn pub mut close(to_index: Int) {
+    if @from_index.none? {
+      panic("Attempting to close group {@id} that hasn't been opened")
+    }
+    if @to_index.none? {
+      @to_index = Option.Some(to_index)
+    }
+  }
+}
+
+class pub Match {
+  let @groups: Array[Option[Group]]
+  let pub @match: Group
+
+  fn pub static new(match_group: Group, groups: Array[Option[Group]]) -> Match {
+    Match {
+      @match=match_group,
+      @groups=groups
+    }
+  }
+
+  fn pub group(index: Int) -> ref Option[Group] {
+    @groups.get(index)
+  }
+}
+
+impl Equal[Match] for Match {
+  fn pub ==(other: ref Match) -> Bool {
+    return @match == other.match and @groups == other.groups
+  }
+}
+
+impl Format for Match {
+  fn pub fmt(formatter: mut Formatter) {
+    formatter.write('Match \{@match=')
+    @match.fmt(formatter)
+    formatter.write(', @groups=')
+    @groups.fmt(formatter)
+    formatter.write('}')
+  }
+}

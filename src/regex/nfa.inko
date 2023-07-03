@@ -1,7 +1,7 @@
 import std::fmt::(Format, Formatter, fmt as format)
 import std::cmp::(Equal)
-import regex::matcher::(Group)
-import debug::(debug)
+import std::set::(Set)
+import regex::matcher::(Group, GroupBuilder, Match)
 
 # Based on https://deniskyashif.com/2019/02/17/implementing-a-regular-expression-engine/
 
@@ -84,7 +84,7 @@ class pub State {
   # as it has to break out of recursive loops itself.
   #
   # You MUST call clear_cycle_detection_marks before calling it again with a new symbol.
-  fn mut skip_to_symbol_transitions(next_states_collector: mut Array[ref State]) {
+  fn mut skip_to_symbol_transitions(next_states_collector: mut Array[ref State], open_transition_collector: mut Set[Int], close_transition_collector: mut Set[Int]) {
     if (@mark_for_cycle_detection) {
       return
     }
@@ -93,17 +93,23 @@ class pub State {
     match @transition {
       case End -> next_states_collector.push(self)
       case Symbol(symbol, state) -> next_states_collector.push(self)
-      case Reference(state) -> state.skip_to_symbol_transitions(next_states_collector)
-      case Empty(state) -> state.skip_to_symbol_transitions(next_states_collector)
-      case OpenGroup({@state=state, @id=id}) -> state.skip_to_symbol_transitions(next_states_collector)
-      case CloseGroup({@state=state, @id=id}) -> state.skip_to_symbol_transitions(next_states_collector)
+      case Reference(state) -> state.skip_to_symbol_transitions(next_states_collector, open_transition_collector, close_transition_collector)
+      case Empty(state) -> state.skip_to_symbol_transitions(next_states_collector, open_transition_collector, close_transition_collector)
+      case OpenGroup({@state=state, @id=id}) -> {
+        open_transition_collector.insert(id)
+        state.skip_to_symbol_transitions(next_states_collector, open_transition_collector, close_transition_collector)
+      }
+      case CloseGroup({@state=state, @id=id}) -> {
+        close_transition_collector.insert(id)
+        state.skip_to_symbol_transitions(next_states_collector, open_transition_collector, close_transition_collector)
+      }
       case Split(Empty(state1), Empty(state2)) -> {
-        state1.skip_to_symbol_transitions(next_states_collector)
-        state2.skip_to_symbol_transitions(next_states_collector)
+        state1.skip_to_symbol_transitions(next_states_collector, open_transition_collector, close_transition_collector)
+        state2.skip_to_symbol_transitions(next_states_collector, open_transition_collector, close_transition_collector)
       }
       case Split(Reference(state1), Empty(state2)) -> {
-        state1.skip_to_symbol_transitions(next_states_collector)
-        state2.skip_to_symbol_transitions(next_states_collector)
+        state1.skip_to_symbol_transitions(next_states_collector, open_transition_collector, close_transition_collector)
+        state2.skip_to_symbol_transitions(next_states_collector, open_transition_collector, close_transition_collector)
       }
       case Split(_, _) -> panic("Unexpected split encountered during skip_to_symbol_transitions")
     }
@@ -394,20 +400,42 @@ class pub Nfa {
   # Currently, match is defined as "an end state is reached starting from the currennt state".
   # Specifically, it is possible for a match to return true even if not all characetrs in the
   # provided word have been matched.
-  fn pub mut matches(target: String) -> Option[Group] {
+  fn pub mut matches(target: String) -> Option[Match] {
     let mut current_states = [mut @start]
     let characters = target.characters
     let mut character_option = characters.next
     let mut count = 0
     let mut longest_match = Option.None
+    let groups = @groups.iter.with_index.map fn (entry) {
+      match entry {
+        case (index, (open_group, close_group)) -> {
+          if (index != open_group.id or index != close_group.id) {
+            panic("The group id should always be the same as the index. This is a bug.")
+          }
+          GroupBuilder.new(index, target)
+        }
+      }
+    }.to_array
+
 
     while (character_option).some? {
       let character = character_option.unwrap
       let mut next_states: Array[mut State] = []
+      let mut open_transitions = Set.new
+      let mut close_transitions = Set.new
+
       current_states.iter_mut.each fn (state) {
-        state.skip_to_symbol_transitions(next_states)
+        state.skip_to_symbol_transitions(next_states, open_transitions, close_transitions)
         state.clear_cycle_detection_marks
       }
+
+      open_transitions.iter.each fn (o) {
+        groups.get_mut(o).open(count)
+      }
+      close_transitions.iter.each fn (c) {
+        groups.get_mut(c).close(count)
+      }
+
       # next_states now contains only Symbol or End transitions
       if next_states.iter.any?(fn (state) {state.end?}) {
         longest_match = Option.Some(Group.new(target, 0, count))
@@ -427,16 +455,28 @@ class pub Nfa {
     }
 
 
+
     let final_states = []
+    let open_transitions = Set.new
+    let close_transitions = Set.new
     current_states.iter_mut.each fn (state) {
-      state.skip_to_symbol_transitions(final_states)
+      state.skip_to_symbol_transitions(final_states, open_transitions, close_transitions)
       state.clear_cycle_detection_marks
+    }
+    open_transitions.iter.each fn (o) {
+      groups.get_mut(o).open(count)
+    }
+    close_transitions.iter.each fn (c) {
+      groups.get_mut(c).close(count)
     }
     if final_states.iter.any?(fn (state) {state.end?}) {
       longest_match = Option.Some(Group.new(target, 0, count))
     }
 
-    return longest_match
+    match longest_match {
+      case Some(match_group) -> Option.Some(Match.new(match_group, groups.into_iter.map(fn (g)  {g.into_group}).to_array))
+      case None -> Option.None
+    }
   }
 }
 

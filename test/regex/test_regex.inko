@@ -15,5 +15,6 @@ fn pub tests(t: mut Tests) {
     )
     t.equal(result.group(0).as_ref.unwrap.string, 'ab')
     t.equal(result.group(1).as_ref.unwrap.string, 'def')
+    t.equal(result.match.string, 'abcdefdef')
   }
 }

@@ -485,6 +485,26 @@ fn pub tests(t: mut Tests) {
     t.equal(nfa.matches('*'), Option.None)
   }
 
+  t.test("Parse an escaped \\.") fn (t) {
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.Character(
+            Leaf.EscapedCharacter('.')
+          )
+        )
+      )
+    )
+
+    let parser = Parser.new('\\.')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+
+    let nfa = tree.to_nfa
+    t.equal(nfa.matches('.'), Option.Some(Match.new(Group.new('.', 0, 1), [])))
+
+  }
+
   t.test("Parse an empty character class") fn (t) {
     let expected = Expression.Single(
       Term.Single(

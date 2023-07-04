@@ -4,8 +4,8 @@ import std::ops::(Add)
 
 class pub Group {
   let @source_string: String
-  let @from_index: Int
-  let @to_index: Int
+  let pub @from_index: Int
+  let pub @to_index: Int
 
   fn pub static new (source_string: String, from_index: Int, to_index: Int) -> Group {
     Group {

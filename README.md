@@ -51,9 +51,10 @@ The `Group` class returned by both those fields has this interface:
 - `group.to_index` the index in the source string where this group ended
 - `group.string` the substring contained within those two indices
 
-That's more or less it
-
 ## Supported regex syntaxes
+
+The long term goal is to be PCRE compliant, but I'm not going to be too focused on that
+any time soon. For now, this is what is actually supported:
 
 ### Concatenation
 

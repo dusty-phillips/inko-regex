@@ -544,4 +544,22 @@ fn pub tests(t: mut Tests) {
     t.equal(nfa.matches('d'), Option.None)
     t.equal(nfa.matches(''), Option.None)
   }
+
+  t.test("Parse a single wildcard") fn (t) {
+      let expected = Expression.Single(
+        Term.Single(
+          Factor.Single(
+            Atom.NegatedClass(
+              Leaf.String('')
+            )
+          )
+        )
+      )
+      let parser = Parser.new('.')
+      let tree = parser.parse()
+      t.equal(tree, expected)
+
+      # TODO: This needs to check the matching once the nfas are set up.
+
+  }
 }

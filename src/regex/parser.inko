@@ -20,8 +20,8 @@ import regex::nfa::(Nfa)
 # <expr> ::= <term> | <term>'|'<expr>
 # <term> ::= <factor> | <factor><term>
 # <factor> ::= <atom> | <atom><meta-char>
-# <atom> ::= <char> | '('<expr>')'
-# <char> ::= <any-char-except-meta-char> | '\'<any-char>
+# <atom> ::= <char> | '['<any-chars>']'  | '('<expr>')'
+# <char> ::= <any-char-except-meta-char-or-.> | '.' | '\'<any-char>
 # <meta-char> ::= '?' | '*' | '+'
 
 fn meta_char?(char: String) -> Bool {
@@ -91,7 +91,8 @@ impl TreeNode[Leaf] for Leaf {
 class pub enum Atom {
   case Grouped(Expression) # (<expr>)
   case Character(Leaf) # <character>
-  case Class(Leaf) # [<character_class]
+  case Class(Leaf) # [<character_class>]
+  case NegatedClass(Leaf) # [^<character_class>]
 }
 
 impl Format for Atom {
@@ -105,9 +106,12 @@ impl Format for Atom {
         formatter.write("Atom (Character)\n  ")
         character.fmt(formatter)
       }
-
       case Class(string) -> {
         formatter.write("Atom (Class)\n  ")
+        string.fmt(formatter)
+      }
+      case NegatedClass(string) -> {
+        formatter.write("Atom (Negated Class)\n  ")
         string.fmt(formatter)
       }
     }
@@ -120,6 +124,7 @@ impl Equal[Atom] for Atom {
       case(Grouped(expression), Grouped(other_expression)) -> expression == other_expression
       case (Character(leaf), Character(other_leaf)) -> leaf == other_leaf
       case (Class(leaf), Class(other_leaf)) -> leaf == other_leaf
+      case (NegatedClass(leaf), NegatedClass(other_leaf)) -> leaf == other_leaf
       case _ -> false
     }
   }
@@ -135,6 +140,8 @@ impl TreeNode[Atom] for Atom {
       }
       case Character(leaf) -> leaf.to_nfa
       case Class(leaf) -> leaf.to_nfa
+      case NegatedClass(String(string)) -> panic("Negated class not supported yet")
+      case NegatedClass(_) -> panic("This should never happen")
     }
   }
 }
@@ -453,6 +460,10 @@ class pub Parser {
           case Some(char) -> panic("Expected ], got {char}")
         }
 
+      }
+      case Some(char) if char == '.' -> {
+        @pattern_iter.next
+        Atom.NegatedClass(Leaf.String(""))
       }
       case Some(char) -> {
         let character = self.character

@@ -546,20 +546,34 @@ fn pub tests(t: mut Tests) {
   }
 
   t.test("Parse a single wildcard") fn (t) {
-      let expected = Expression.Single(
-        Term.Single(
-          Factor.Single(
-            Atom.NegatedClass(
-              Leaf.String('')
-            )
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.NegatedClass(
+            Leaf.String('')
           )
         )
       )
-      let parser = Parser.new('.')
-      let tree = parser.parse()
-      t.equal(tree, expected)
+    )
+    let parser = Parser.new('.')
+    let tree = parser.parse()
+    t.equal(tree, expected)
 
-      # TODO: This needs to check the matching once the nfas are set up.
+    let nfa = tree.to_nfa
+
+    t.equal(
+      nfa.matches('a'),
+      Option.Some(Match.new(Group.new('a', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches('b'),
+      Option.Some(Match.new(Group.new('b', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches('abbb'),
+      Option.Some(Match.new(Group.new('abbb', 0, 1), []))
+    )
+    t.equal(nfa.matches(''), Option.None)
   }
 
   t.test("Parse an empty negated class") fn (t) {
@@ -576,6 +590,58 @@ fn pub tests(t: mut Tests) {
     let tree = parser.parse()
     t.equal(tree, expected)
 
-    # TODO: This needs  to check the matching once the nfas are set up.
+
+    let nfa = tree.to_nfa
+
+    t.equal(
+      nfa.matches('a'),
+      Option.Some(Match.new(Group.new('a', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches('b'),
+      Option.Some(Match.new(Group.new('b', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches('abbb'),
+      Option.Some(Match.new(Group.new('abbb', 0, 1), []))
+    )
+    t.equal(nfa.matches(''), Option.None)
+  }
+
+  t.test("Parse a non-empty negated class") fn (t) {
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.NegatedClass(
+            Leaf.String('^abc')
+          )
+        )
+      )
+    )
+
+    let parser = Parser.new('[^abc]')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+
+    let nfa = tree.to_nfa
+
+
+    t.equal(
+      nfa.matches('d'),
+      Option.Some(Match.new(Group.new('d', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches('e'),
+      Option.Some(Match.new(Group.new('e', 0, 1), []))
+    )
+    t.equal(
+      nfa.matches('dbbb'),
+      Option.Some(Match.new(Group.new('dbbb', 0, 1), []))
+    )
+    t.equal(nfa.matches(''), Option.None)
+    t.equal(nfa.matches('a'), Option.None)
+    t.equal(nfa.matches('b'), Option.None)
+    t.equal(nfa.matches('c'), Option.None)
+    t.equal(nfa.matches('abcdddd'), Option.None)
   }
 }

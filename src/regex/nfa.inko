@@ -470,14 +470,15 @@ class pub Nfa {
         match state.transition {
           case End -> Option.None
           case Symbol(char, next_state) if char == character -> Option.Some(next_state)
-          # TODO: Need to deal with ExcludeSymbols
           case Symbol(_, _) -> Option.None
+          case ExcludeSymbols(symbols, next_state) if symbols.contains?(character).false? -> Option.Some(next_state)
+          case ExcludeSymbols(_, _) -> Option.None
           case _ -> panic("Unexpected transition in next_states")
         }
       }).to_array
       count += 1
       character_option = characters.next
-      # current_states now contains only states that came after symbol transitions
+      # current_states now contains only states that came after valid symbol transitions
     }
 
 

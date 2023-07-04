@@ -147,7 +147,13 @@ impl TreeNode[Atom] for Atom {
       }
       case Character(leaf) -> leaf.to_nfa
       case Class(leaf) -> leaf.to_nfa
-      case NegatedClass(String(string)) -> panic("Negated class not supported yet")
+      case NegatedClass(String(string)) -> {
+        if string.size > 0 and string.starts_with?('^').false? {
+          panic("Should not have negated class that doesn't start with ^. This is a bug.")
+        }
+        Nfa.exclude_symbols(string.slice(1, string.size - 1))
+
+      }
       case NegatedClass(_) -> panic("This should never happen")
     }
   }

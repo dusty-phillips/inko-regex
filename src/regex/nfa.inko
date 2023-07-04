@@ -59,6 +59,7 @@ class pub State {
         case End -> nil
         case Reference(state) -> state.clear_cycle_detection_marks
         case Symbol(string, state) -> state.clear_cycle_detection_marks
+        case ExcludeSymbols(symbols, state) -> state.clear_cycle_detection_marks
         case Empty(state) -> state.clear_cycle_detection_marks
         case OpenGroup({@state=state}) -> state.clear_cycle_detection_marks
         case CloseGroup({@state=state}) -> state.clear_cycle_detection_marks
@@ -93,6 +94,7 @@ class pub State {
     match @transition {
       case End -> next_states_collector.push(self)
       case Symbol(symbol, state) -> next_states_collector.push(self)
+      case ExcludeSymbols(symbol, state) -> next_states_collector.push(self)
       case Reference(state) -> state.skip_to_symbol_transitions(next_states_collector, open_transition_collector, close_transition_collector)
       case Empty(state) -> state.skip_to_symbol_transitions(next_states_collector, open_transition_collector, close_transition_collector)
       case OpenGroup({@state=state, @id=id}) -> {
@@ -185,6 +187,8 @@ class pub enum Transition {
   case End
   # Transition to a new state if the given (single) character matches the one in the pattern
   case Symbol(String, State)
+  # Transition to a new state if the given (single) character IS NOT in the provided set (empty set matches any character)
+  case ExcludeSymbols(Set[String], State)
   # Transition to the next (owned) state without advancing a character (epsilon transition)
   case Empty(State)
   # Transition to the next (owned) state without advancing a character, but record that a group opened
@@ -202,6 +206,7 @@ impl Equal[Transition] for Transition {
     match (self, other) {
       case (End, End) -> true
       case (Symbol(char, state), Symbol(other_char, other_state)) -> char == other_char and state == other_state
+      case (ExcludeSymbols(symbols, state), ExcludeSymbols(other_symbols, other_state)) -> symbols == other_symbols and state == other_state
       case (Empty(state), Empty(other_state)) -> state == other_state
       case (
         OpenGroup({@state = state, @id=id}),
@@ -224,6 +229,12 @@ impl Format for Transition {
     match self {
       case End -> {
         formatter.write("--->(End)")
+      }
+      case ExcludeSymbols(symbols, state) -> {
+        formatter.write("-[^{String.join(symbols.iter, '')}]->\n")
+        formatter.descend fn () {
+          state.fmt(formatter)
+        }
       }
       case Symbol(string, state) -> {
         formatter.write("-{string}->\n")
@@ -306,7 +317,21 @@ class pub Nfa {
     Nfa.new(start, end_ref)
   }
 
+  # Construct a new excluded symbols NFA, comprised of a start state with excluded symbol
+  # transition to an end state.
+  fn pub static exclude_symbols(symbols: String) -> Nfa {
+    let mut symbol_set = Set.new
+    symbols.characters.each fn (symbol) {
+      symbol_set.insert(symbol)
+    }
+    let end = State.end
+    let end_ref = mut end
+    let start = State.new(Transition.ExcludeSymbols(symbol_set, end))
+    Nfa.new(start, end_ref)
+  }
+
   # Concatenate the provided NFA to ourselves. (AND expression)
+  # S -a-> () -ε-> () -b-> E
   fn pub mut concat(other: Nfa) {
     match other {
       case {@end=other_end, @start=other_start, @groups=other_groups} -> {
@@ -436,7 +461,7 @@ class pub Nfa {
         groups.get_mut(c).close(count)
       }
 
-      # next_states now contains only Symbol or End transitions
+      # next_states now contains only Symbol, ExcludeSymbols, or End transitions
       if next_states.iter.any?(fn (state) {state.end?}) {
         longest_match = Option.Some(Group.new(target, 0, count))
       }
@@ -445,6 +470,7 @@ class pub Nfa {
         match state.transition {
           case End -> Option.None
           case Symbol(char, next_state) if char == character -> Option.Some(next_state)
+          # TODO: Need to deal with ExcludeSymbols
           case Symbol(_, _) -> Option.None
           case _ -> panic("Unexpected transition in next_states")
         }

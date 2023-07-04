@@ -1,9 +1,22 @@
 import std::stdio::STDOUT
 import std::test::Tests
 import std::fmt::(fmt)
+import std::set::(Set)
 import regex::nfa::(Nfa, State, Transition, GroupTransition)
 
 fn pub tests(t: mut Tests) {
+  t.test("Empty exclude symbols (wildcard) NFA") fn (t) {
+    let nfa = Nfa.exclude_symbols("")
+
+    let expected = {
+      let end = State.end
+      let end_mut = mut end
+      let start = State.new(Transition.ExcludeSymbols(Set.new, end))
+      Nfa.new(start, end_mut)
+    }
+
+    t.equal(nfa, expected)
+  }
   t.test("Concat two empty NFAs") fn (t) {
     let nfa = Nfa.empty
     nfa.concat(Nfa.empty)

@@ -36,10 +36,10 @@ let result = re.run('abcdefdef').unwrap
 
 Here, `result` is an option that is `None` if no match was found, and `Some` if a match was found.
 
-If it is `Some` it'll be an instance of [regex.matcher.Match](blob/main/src/regex/matcher.inko#L82)
+If it is `Some` it'll be an instance of [regex.matcher.Match](/src/regex/matcher.inko#L82)
 The key fields on this object are:
 
-- `group(index: Int)` to get the [regex.matcher.Group](blob/main/src/regex/matcher.inko#L5) by its index
+- `group(index: Int)` to get the [regex.matcher.Group](/src/regex/matcher.inko#L5) by its index
   in the string. Group indices are counted from left to right in order of open parens. This method
   returns an `Option`, as it is possible to construct regular expressions where not all groups match a given
   string (e.g: `(ab)|(cd)`)

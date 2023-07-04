@@ -1,0 +1,19 @@
+import std::test::(Tests)
+import regex
+import regex::matcher::(Group, Match)
+
+fn pub tests(t: mut Tests) {
+  t.test("Regex facade and match API") fn (t) {
+    let re = regex.compile('(ab).(def)+')
+    t.equal(re.run(''), Option.None)
+    t.equal(re.run('xxxxxx'), Option.None)
+    let result = re.run('abcdefdef').unwrap
+    t.equal(result, Match.new(Group.new('abcdefdef', 0, 9), [
+        Option.Some(Group.new('abcdefdef', 0, 2)),
+        Option.Some(Group.new('abcdefdef', 3, 6))
+      ])
+    )
+    t.equal(result.group(0).as_ref.unwrap.string, 'ab')
+    t.equal(result.group(1).as_ref.unwrap.string, 'def')
+  }
+}

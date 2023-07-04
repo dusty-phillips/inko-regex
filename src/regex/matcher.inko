@@ -15,8 +15,8 @@ class pub Group {
     }
   }
 
-  fn string() {
-    @source_string.slice(@from_index, @to_index)
+  fn pub string() -> String {
+    @source_string.slice(@from_index, @to_index - @from_index)
   }
 }
 

@@ -3,6 +3,7 @@ import std::env
 import std::test::(Filter, Tests)
 import regex::test_parser
 import regex::test_nfa
+import regex::test_regex
 
 class async Main {
   fn async main {
@@ -10,6 +11,7 @@ class async Main {
 
     test_parser.tests(tests)
     test_nfa.tests(tests)
+    test_regex.tests(tests)
 
     tests.filter = Filter.from_string(env.arguments.opt(0).unwrap_or(''))
     tests.run

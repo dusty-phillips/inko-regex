@@ -1,0 +1,48 @@
+import regex::nfa::(Nfa)
+import regex::parser::(Parser)
+import regex::matcher::(Match)
+
+# Main interface to construct a regular expression
+# from a string pattern.
+#
+# Internally, this just proxies to Regex.new
+fn pub compile(pattern: String) -> Regex {
+  Regex.new(pattern)
+}
+
+# Pure inko regular expression engine. This is the main
+# API to interact with the lower level parser, nfa, and
+# matcher modules.
+class pub Regex {
+  let @pattern: String
+  let @nfa: Nfa
+
+  # Construct a new regular expression matcher, parsing the
+  # pattern and compiling it for future matching.
+  #
+  # This method will panic if the pattern is not a valid regular
+  # expression.
+  fn pub static new(pattern: String) -> Regex {
+    let parser = Parser.new(pattern)
+    let nfa = parser.parse.to_nfa
+
+    Regex {
+      @pattern = pattern,
+      @nfa = nfa
+    }
+  }
+
+  # Run the compiled regular expression against the provided
+  # string and determine if it matches. Returns an Option;
+  # if it is Some, then a match was found and the
+  # details of the match can be looked up in the option's
+  # value, a 'matcher::Match'
+  #
+  # Note: This function needs to be mutable because the underlying
+  # nfa updates itself while it is running to record some internal
+  # state. After `run` is complete, it is in the same condition
+  # that it started in.
+  fn pub mut run(target: String) -> Option[Match] {
+    @nfa.matches(target)
+  }
+}

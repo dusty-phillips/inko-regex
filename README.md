@@ -134,8 +134,7 @@ These are the currently supported escapes:
 All other escaped characters are technically supported in that they match themselves.
 So `\\m` matches `m`, but why would you do that?
 
-**Note**
-
+> **Note**
 > Standard escapes for spaces, digits, and classes are not currently supported, so `\s`, `\w`, `\d`
 > etc don't do what you normally expect.
 

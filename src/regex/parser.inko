@@ -42,6 +42,13 @@ class pub enum Leaf {
   case Character(String) # any character excluding escaped characters
   case EscapedCharacter(String) # \*, \+, \?
   case String(String) # multiple characters, used as part of character class
+
+  fn negated_class_string?() -> Bool {
+    match self {
+      case String(string) if string.starts_with?('^') ->true
+      case _ -> false
+    }
+  }
 }
 
 
@@ -432,7 +439,7 @@ class pub Parser {
 
   # Eat an atom off the parser
   #
-  # <char> | '('<expr>')'
+  # <char> | '['chars']' | '('<expr>')'
   fn mut atom() -> Atom {
     match @pattern_iter.peek {
       case None -> panic("unexpected end of input")
@@ -455,7 +462,12 @@ class pub Parser {
           case None -> panic("No closing ]")
           case Some(']') -> {
             @pattern_iter.next
-            Atom.Class(characters)
+            if (characters.negated_class_string?) {
+              Atom.NegatedClass(characters)
+            }
+            else {
+              Atom.Class(characters)
+            }
           }
           case Some(char) -> panic("Expected ], got {char}")
         }

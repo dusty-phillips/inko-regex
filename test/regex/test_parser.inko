@@ -560,6 +560,22 @@ fn pub tests(t: mut Tests) {
       t.equal(tree, expected)
 
       # TODO: This needs to check the matching once the nfas are set up.
+  }
 
+  t.test("Parse an empty negated class") fn (t) {
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.NegatedClass(
+            Leaf.String('^')
+          )
+        )
+      )
+    )
+    let parser = Parser.new('[^]')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+
+    # TODO: This needs  to check the matching once the nfas are set up.
   }
 }

@@ -19,7 +19,7 @@ The usual way to install inko packages:
 
 ```
 inko pkg init # if inko.pkg doesn't exist
-inko pkg add github.com/dusty-phillips/inko-regex 0.0.1
+inko pkg add github.com/dusty-phillips/inko-regex 0.0.2
 inko pkg sync
 ```
 
@@ -129,14 +129,15 @@ These are the currently supported escapes:
 - `\\*` Match a literal `*`
 - `\\+` Match a literal `+`
 - `\\?` Match a literal question mark
-- `\.` Match a literal period
+- `\\.` Match a literal period
 - `\\\\` Match a literal backslash
+- `\\d` Match any of the digit characters. Equivalent to [0123456789]
 
 All other escaped characters are technically supported in that they match themselves.
 So `\\m` matches `m`, but why would you do that?
 
 > **Note**
-> Standard escapes for spaces, digits, and classes are not currently supported, so `\s`, `\w`, `\d`
+> Standard escapes for whitespace and classes other than digits are not currently supported, so `\s`, `\w`, `\b`
 > etc don't do what you normally expect.
 
 ## Contributing

@@ -78,7 +78,19 @@ impl TreeNode[Leaf] for Leaf {
   fn pub to_nfa() -> Nfa {
     match self {
       case Character(character) -> Nfa.symbol(character)
-      case EscapedCharacter(character) -> Nfa.symbol(character)
+      case EscapedCharacter(character) -> {
+        match character {
+          case 'd' -> {
+            let nfa = Nfa.symbol('0')
+            1.to(9).iter.each fn (digit) {
+              nfa.union(Nfa.symbol(digit.to_string))
+            }
+
+            nfa
+          }
+          case char -> Nfa.symbol(char)
+        }
+      }
       case String(characters) -> {
         let iter = characters.characters
         let nfa = match iter.next {

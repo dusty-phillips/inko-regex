@@ -502,6 +502,37 @@ fn pub tests(t: mut Tests) {
 
     let nfa = tree.to_nfa
     t.equal(nfa.matches('.'), Option.Some(Match.new(Group.new('.', 0, 1), [])))
+  }
+
+  t.test("Parse an escaped \\d") fn (t) {
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.Character(
+            Leaf.EscapedCharacter('d')
+          )
+        )
+      )
+    )
+
+    let parser = Parser.new('\\d')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+    let nfa = tree.to_nfa
+    t.equal(nfa.matches('0'), Option.Some(Match.new(Group.new('0', 0, 1), [])))
+    t.equal(nfa.matches('1'), Option.Some(Match.new(Group.new('1', 0, 1), [])))
+    t.equal(nfa.matches('2'), Option.Some(Match.new(Group.new('2', 0, 1), [])))
+    t.equal(nfa.matches('3'), Option.Some(Match.new(Group.new('3', 0, 1), [])))
+    t.equal(nfa.matches('4'), Option.Some(Match.new(Group.new('4', 0, 1), [])))
+    t.equal(nfa.matches('5'), Option.Some(Match.new(Group.new('5', 0, 1), [])))
+    t.equal(nfa.matches('6'), Option.Some(Match.new(Group.new('6', 0, 1), [])))
+    t.equal(nfa.matches('7'), Option.Some(Match.new(Group.new('7', 0, 1), [])))
+    t.equal(nfa.matches('8'), Option.Some(Match.new(Group.new('8', 0, 1), [])))
+    t.equal(nfa.matches('9'), Option.Some(Match.new(Group.new('9', 0, 1), [])))
+    t.equal(nfa.matches('a'), Option.None)
+    t.equal(nfa.matches('b'), Option.None)
+    t.equal(nfa.matches(''), Option.None)
+
 
   }
 

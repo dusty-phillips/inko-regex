@@ -694,4 +694,37 @@ fn pub tests(t: mut Tests) {
     t.equal(nfa.matches('c'), Option.None)
     t.equal(nfa.matches('abcdddd'), Option.None)
   }
+
+  t.test("Parse a character class range") fn (t) {
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.Class(
+            Leaf.String('01234')
+          )
+        )
+      )
+    )
+
+    let parser = Parser.new('[0-4]')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+  }
+
+
+  t.test("Parse alphanumeric range") fn (t) {
+    let expected = Expression.Single(
+      Term.Single(
+        Factor.Single(
+          Atom.Class(
+            Leaf.String('0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ')
+          )
+        )
+      )
+    )
+
+    let parser = Parser.new('[0-9a-zA-Z]')
+    let tree = parser.parse()
+    t.equal(tree, expected)
+  }
 }

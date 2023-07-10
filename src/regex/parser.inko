@@ -3,6 +3,7 @@ import std::fmt::(Format, Formatter)
 import std::cmp::(Equal)
 import std::string::(StringBuffer)
 import regex::nfa::(Nfa)
+import regex::ascii
 
 # Based on https://deniskyashif.com/2020/08/17/parsing-regex-with-recursive-descent/
 #
@@ -532,11 +533,34 @@ class pub Parser {
         case Some(']') -> return Leaf.String(buffer.into_string)
         case Some(char) -> {
           @pattern_iter.next
-          buffer.push(char)
+          match @pattern_iter.peek {
+            case Some('-') -> buffer.push(self.character_class_range(char))
+            case _ -> buffer.push(char)
+          }
         }
       }
-
     }
+  }
+
+  # Eat the tail of a range, returning all the characters in that range.
+  fn mut character_class_range(start: String) -> String {
+    let start_ord = start.byte(0)
+    @pattern_iter.next # Eat the -
+    match @pattern_iter.next {
+      case None -> panic('unclosed character range after -')
+      case Some(']') -> panic('unclosed character range before ]')
+      case Some(end) -> {
+        let end_ord = end.byte(0)
+        if end_ord < start_ord {panic("Bad Character range {start}-{end}")}
+        let chars = StringBuffer.new
+        start_ord.to(end_ord).iter.each fn (ord) {chars.push(ascii.chr(ord))}
+        chars.into_string
+      }
+    }
+
+
+
+
   }
 }
 

@@ -106,11 +106,10 @@ For example `[abc]` matches the strings `a` or `b` or `c`.
 
 Negated character classes are also supported; prefix the string with a caret `^`.
 
-So `[^abc]` matches any character except `a` or `b` or `c`.
+So `[^abc]` matches any character **except** `a` or `b` or `c`.
 
-> **Note**
-> Ranges and named character classes are not currently supported. So `[a-z]`, `[0-9]`, or `[:alpha:]`
-> probably don't do what you would expect.
+Ranges are supported _in a limited way_. Ranges only work in alphanumeric space.
+So `[0-9A-F]` and `[a-zA-Z]` are valid ranges, but `[;-@]` and `😍-😎` are not.
 
 ### Escapes
 

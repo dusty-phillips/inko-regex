@@ -1,0 +1,31 @@
+import debug::(debug)
+
+# Utilities for working with ascii characters, especially around character class
+# ranges such as `a-z`
+
+# Map a string character given its ascii byte code.
+#
+# The indices in this array will be offset from the ascii code by -48.
+#
+# E.g:
+# ASCII code 48 (the '0' character) is at index 0 in this array.
+# ASCII code 65 is at index 17 (65 - 48 = 17)
+let LOOKUP_TABLE = [
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ':', ';', '<', '=', '>', '?', '@',
+  'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q',
+  'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '[', '\\', ']', '^', '_', '`', 'a', 'b',
+  'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's',
+  't', 'u', 'v', 'w', 'x', 'y', 'z'
+]
+
+# Given the 7-bit ascii Integer for a letter or digit, look up the string
+# representation of that letter or digit.
+#
+# Note: This is a cheap imitation of what a real unicode reversal function would do.
+# For the purposes of ranges in a regular expression engine, I think it's ok, but
+# I hope to upgrade it to something that can handle all unicode ranges in the future.
+fn pub chr(codepoint: Int) -> String {
+  let lookup = codepoint - 48
+  LOOKUP_TABLE.get(lookup)
+}
+

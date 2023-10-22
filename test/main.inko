@@ -1,9 +1,9 @@
 
-import std::env
-import std::test::(Filter, Tests)
-import regex::test_parser
-import regex::test_nfa
-import regex::test_regex
+import std.env
+import std.test.(Filter, Tests)
+import regex.test_parser
+import regex.test_nfa
+import regex.test_regex
 
 class async Main {
   fn async main {

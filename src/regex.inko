@@ -1,6 +1,6 @@
-import regex::nfa::(Nfa)
-import regex::parser::(Parser)
-import regex::matcher::(Match)
+import regex.nfa.(Nfa)
+import regex.parser.(Parser)
+import regex.matcher.(Match)
 
 # Main interface to construct a regular expression
 # from a string pattern.
@@ -36,7 +36,7 @@ class pub Regex {
   # string and determine if it matches. Returns an Option;
   # if it is Some, then a match was found and the
   # details of the match can be looked up in the option's
-  # value, a 'matcher::Match'
+  # value, a 'matcher.Match'
   #
   # Note: This function needs to be mutable because the underlying
   # nfa updates itself while it is running to record some internal

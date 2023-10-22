@@ -1,9 +1,9 @@
-import std::iter::(Iter)
-import std::fmt::(Format, Formatter)
-import std::cmp::(Equal)
-import std::string::(StringBuffer)
-import regex::nfa::(Nfa)
-import regex::ascii
+import std.iter.(Iter, Peekable)
+import std.fmt.(Format, Formatter)
+import std.cmp.(Equal)
+import std.string.(StringBuffer)
+import regex.nfa.(Nfa)
+import regex.ascii
 
 # Based on https://deniskyashif.com/2020/08/17/parsing-regex-with-recursive-descent/
 #
@@ -93,7 +93,7 @@ impl TreeNode[Leaf] for Leaf {
         }
       }
       case String(characters) -> {
-        let iter = characters.characters
+        let iter = characters.chars
         let nfa = match iter.next {
           case None -> Nfa.empty # empty character class shouldn't happen, but it's supported
           case Some(character) -> Nfa.symbol(character)
@@ -164,7 +164,7 @@ impl TreeNode[Atom] for Atom {
         if string.size > 0 and string.starts_with?('^').false? {
           panic("Should not have negated class that doesn't start with ^. This is a bug.")
         }
-        Nfa.exclude_symbols(string.slice(1, string.size - 1))
+        Nfa.exclude_symbols(string.substring(1, string.size - 1))
 
       }
       case NegatedClass(_) -> panic("This should never happen")
@@ -334,65 +334,17 @@ impl TreeNode[Expression] for Expression {
   }
 }
 
-# An iterator that buffers the initial value so you can "peek" at it without consuming it
-class PeekablePatternIter {
-  let @pattern_iter: Iter[String]
-  let @peek_buffer: Option[String]
-
-  # Construct a new PeekablePatternIter
-  fn static new(pattern: String) -> PeekablePatternIter {
-    PeekablePatternIter {
-      @pattern_iter = pattern.characters,
-      @peek_buffer = Option.None
-    }
-  }
-
-  # Check the first value of the iterator without consuming it.
-  #
-  # If this returns None, the iterator is exhausted.
-  fn mut peek() -> ref Option[String] {
-    if @peek_buffer.some?.false? {
-      @peek_buffer = @pattern_iter.next
-    }
-    return @peek_buffer
-  }
-
-  # Return a string representation of the next item,
-  # unwrapping "None" to a string.
-  #
-  # Only useful when debugging the tree.
-  fn mut debug_peek() -> String {
-    if @peek_buffer.some?.false? {
-      @peek_buffer = @pattern_iter.next
-    }
-
-    if @peek_buffer.some?.false? {
-      return "None"
-    }
-    return @peek_buffer.as_ref.unwrap
-  }
-}
-
-impl Iter[String] for PeekablePatternIter {
-  # next will clear and return the peek buffer if it exists
-  # otherwise consumes the next item on the iterator.
-  fn pub mut next -> Option[String] {
-    let peek_buffer = @peek_buffer := Option.None
-    if peek_buffer.some? { return peek_buffer }
-    return @pattern_iter.next
-  }
-}
 
 # Regular Expression Parser that accepts a pattern string
 # and uses a linear-time recursive descent algorithm to
 # convert it into a tree of TreeNode objects.
 class pub Parser {
-  let @pattern_iter: PeekablePatternIter
+  let @pattern_iter: Peekable[String]
 
   # Construct a new parser around the given pattern.
   fn pub static new(pattern: String) -> Parser {
     Parser {
-      @pattern_iter = PeekablePatternIter.new(pattern)
+      @pattern_iter = pattern.chars.peekable
     }
   }
 

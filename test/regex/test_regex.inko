@@ -1,6 +1,6 @@
-import std::test::(Tests)
+import std.test.(Tests)
 import regex
-import regex::matcher::(Group, Match)
+import regex.matcher.(Group, Match)
 
 fn pub tests(t: mut Tests) {
   t.test("Regex facade and match API") fn (t) {

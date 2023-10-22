@@ -1,8 +1,8 @@
-import std::stdio::STDOUT
-import std::test::Tests
-import std::fmt::(fmt)
-import std::set::(Set)
-import regex::nfa::(Nfa, State, Transition, GroupTransition)
+import std.stdio.STDOUT
+import std.test.Tests
+import std.fmt.(fmt)
+import std.set.(Set)
+import regex.nfa.(Nfa, State, Transition, GroupTransition)
 
 fn pub tests(t: mut Tests) {
   t.test("Empty exclude symbols (wildcard) NFA") fn (t) {
@@ -54,8 +54,6 @@ fn pub tests(t: mut Tests) {
     }
 
     t.equal(nfa, expected)
-
-
   }
 
   t.test("Union two empty NFAs") fn (t) {

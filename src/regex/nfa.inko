@@ -1,7 +1,7 @@
-import std::fmt::(Format, Formatter, fmt as format)
-import std::cmp::(Equal)
-import std::set::(Set)
-import regex::matcher::(Group, GroupBuilder, Match)
+import std.fmt.(Format, Formatter, fmt as format)
+import std.cmp.(Equal)
+import std.set.(Set)
+import regex.matcher.(Group, GroupBuilder, Match)
 
 # Based on https://deniskyashif.com/2019/02/17/implementing-a-regular-expression-engine/
 
@@ -321,7 +321,7 @@ class pub Nfa {
   # transition to an end state.
   fn pub static exclude_symbols(symbols: String) -> Nfa {
     let mut symbol_set = Set.new
-    symbols.characters.each fn (symbol) {
+    symbols.chars.each fn (symbol) {
       symbol_set.insert(symbol)
     }
     let end = State.end
@@ -335,7 +335,7 @@ class pub Nfa {
   fn pub mut concat(other: Nfa) {
     match other {
       case {@end=other_end, @start=other_start, @groups=other_groups} -> {
-        let group_increment = @groups.length
+        let group_increment = @groups.size
         other_groups.into_iter.each fn (groupref) {
           groupref.0.id += group_increment
           groupref.1.id += group_increment
@@ -351,7 +351,7 @@ class pub Nfa {
   fn pub mut union(other: Nfa) {
     match other {
       case {@end=other_end, @start=other_start, @groups=other_groups} -> {
-        let group_increment = @groups.length
+        let group_increment = @groups.size
         other_groups.into_iter.each fn (groupref) {
           groupref.0.id += group_increment
           groupref.1.id += group_increment
@@ -408,11 +408,11 @@ class pub Nfa {
   # that a group opens and closes before and after it.
   fn pub mut group() {
     let old_start = State.new(@start.replace(Transition.End))
-    let open_transition = GroupTransition.new(old_start, @groups.length)
+    let open_transition = GroupTransition.new(old_start, @groups.size)
     let open_transition_mut = mut open_transition
     let new_end = State.new(@start.replace(open_transition.open))
     let new_end_ref = mut new_end
-    let close_transition = GroupTransition.new(new_end, @groups.length)
+    let close_transition = GroupTransition.new(new_end, @groups.size)
     let close_transition_mut = mut close_transition
     @end.replace(close_transition.close)
     @end = new_end_ref
@@ -427,7 +427,7 @@ class pub Nfa {
   # provided word have been matched.
   fn pub mut matches(target: String) -> Option[Match] {
     let mut current_states = [mut @start]
-    let characters = target.characters
+    let characters = target.chars
     let mut character_option = characters.next
     let mut count = 0
     let mut longest_match = Option.None

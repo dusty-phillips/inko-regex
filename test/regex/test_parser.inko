@@ -1,9 +1,9 @@
 
-import std::fmt::(fmt)
-import std::test::Tests
-import regex::parser::(Expression, Term, Factor, Atom, Leaf, Parser)
-import regex::nfa::(Nfa, State, Transition)
-import regex::matcher::(Group, Match)
+import std.fmt.(fmt)
+import std.test.Tests
+import regex.parser.(Expression, Term, Factor, Atom, Leaf, Parser)
+import regex.nfa.(Nfa, State, Transition)
+import regex.matcher.(Group, Match)
 
 fn pub tests(t: mut Tests) {
   t.test("Parse exactly one character") fn (t) {

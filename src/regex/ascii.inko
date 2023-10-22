@@ -1,5 +1,3 @@
-import debug::(debug)
-
 # Utilities for working with ascii characters, especially around character class
 # ranges such as `a-z`
 
